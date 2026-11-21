@@ -3609,33 +3609,56 @@
           armPivot.add(M(new THREE.SphereGeometry(0.02, 8, 6), handMat, side * 0.055, -0.53, 0.31));
         });
 
-        // Club — grip, steel shaft, wedge head (kept at the same world height)
-        const grip = M(new THREE.CylinderGeometry(0.028, 0.028, 0.28, 8), matDark, 0, -0.62, 0.30);
-        grip.rotation.x = 0.28;
+        // Club — grip, steel shaft, driver head. The shaft runs from the hands
+        // out to the head, so the head sits BESIDE the ball with its face
+        // touching it, not tucked under the ball where it can't be seen.
+        const clubTop = new THREE.Vector3(0, -0.62, 0.30);
+        const clubHeadPos = new THREE.Vector3(0.35, -1.56, 0.57);
+        const clubDir = new THREE.Vector3().subVectors(clubHeadPos, clubTop);
+        const clubQuat = new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0), clubDir.clone().normalize()
+        );
+        const grip = M(new THREE.CylinderGeometry(0.04, 0.04, 0.28, 8), matDark, 0, 0, 0);
+        grip.position.copy(clubTop);
+        grip.quaternion.copy(clubQuat);
         armPivot.add(grip);
         const shaft = M(
-          new THREE.CylinderGeometry(0.018, 0.018, 1.15, 6),
-          new THREE.MeshStandardMaterial({ color: 0xd0d6db, metalness: 0.8, roughness: 0.25 }),
-          0, -1.10, 0.40
+          new THREE.CylinderGeometry(0.018, 0.018, clubDir.length(), 6),
+          new THREE.MeshStandardMaterial({ color: 0xd0d6db, metalness: 0.5, roughness: 0.3 }),
+          0, 0, 0
         );
-        shaft.rotation.x = 0.28;
+        shaft.position.copy(clubTop).addScaledVector(clubDir, 0.5);
+        shaft.quaternion.copy(clubQuat);
         armPivot.add(shaft);
-        const clubHead = M(
-          new THREE.BoxGeometry(0.22, 0.09, 0.15),
-          new THREE.MeshStandardMaterial({ color: 0x22262a, metalness: 0.85, roughness: 0.25 }),
-          0.05, -1.68, 0.52
+        // Driver head, like Tiger's in the picture: big rounded titanium head
+        // with a flat silver face toward the target.
+        const clubHeadGroup = new THREE.Group();
+        clubHeadGroup.position.set(0.35, -1.56, 0.57); // beside the ball, face touching it
+        clubHeadGroup.rotation.z = -0.15;
+        clubHeadGroup.rotation.x = 0.28;
+        const driverHead = M(
+          new THREE.SphereGeometry(0.13, 16, 12),
+          new THREE.MeshStandardMaterial({ color: 0x1c1f22, metalness: 0.7, roughness: 0.3 }),
+          0, 0, 0
         );
-        clubHead.rotation.z = -0.15;
-        clubHead.rotation.x = 0.28;
-        armPivot.add(clubHead);
+        driverHead.scale.set(1.35, 0.6, 1.0);
+        clubHeadGroup.add(driverHead);
+        clubHeadGroup.add(M(
+          new THREE.BoxGeometry(0.02, 0.08, 0.14),
+          new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.9, roughness: 0.15 }),
+          -0.16, 0, 0
+        ));
+        armPivot.add(clubHeadGroup);
 
         golferParts = { rig, torsoPivot, armPivot };
       }
 
-      // Golf Ball + Trail + Aim Guide
+      // Golf Ball + Trail + Aim Guide — real size next to the club
+      // (was 0.18, nearly 3x too big; a real ball is ~1/3 the driver-head length)
+      const BALL_R = 0.07;
       const ballMesh = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(0.18, 1),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, flatShading: true })
+        new THREE.SphereGeometry(BALL_R, 24, 16),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 })
       );
       ballMesh.castShadow = true;
       scene.add(ballMesh);
@@ -3778,7 +3801,7 @@
         state.windSpeed = Math.round(2 + wRand() * 13);
         state.windAngle = wRand() * Math.PI * 2;
 
-        state.ballPos.set(0, hole.teeBaseY + 0.18, 0);
+        state.ballPos.set(0, hole.teeBaseY + BALL_R, 0);
         state.lastDryPos.copy(state.ballPos);
         state.lie = 'Tee';
         state.aimAngle = getTargetAimForHole();
@@ -3859,7 +3882,7 @@
         document.getElementById('hud-lie').textContent = state.lie;
 
         // Elevation (Uphill / Downhill)
-        const ballY = state.ballPos.y - 0.18;
+        const ballY = state.ballPos.y - BALL_R;
         const pinY = hole.groundHeightAt(hole.pin.x, hole.pin.y);
         const elevDiffFt = Math.round((pinY - ballY) * 3);
         const elevEl = document.getElementById('hud-elev');
@@ -4223,8 +4246,8 @@
             state.ballPos.addScaledVector(state.ballVel, h);
 
             const newGround = hole.groundHeightAt(state.ballPos.x, state.ballPos.z);
-            if (state.ballPos.y <= newGround + 0.18) {
-              state.ballPos.y = newGround + 0.18;
+            if (state.ballPos.y <= newGround + BALL_R) {
+              state.ballPos.y = newGround + BALL_R;
               const hitSurface = hole.getSurfaceAt(state.ballPos.x, state.ballPos.z);
               if (hitSurface === 'Water') {
                 handleHazardPenalty('WATER HAZARD! +1 Penalty');
@@ -4249,7 +4272,7 @@
             }
           } else {
             // Rolling on ground
-            state.ballPos.y = groundY + 0.18;
+            state.ballPos.y = groundY + BALL_R;
             state.ballVel.y = 0; // ROOT-CAUSE FIX: a bounce can leave vel.y stuck
             // between 0.25 and 0.35, which is neither "airborne" (>0.35) nor
             // "stopped" (<0.25), so finishShot() could never fire. Rolling = no vertical speed.
@@ -4286,7 +4309,7 @@
             }
             state.ballPos.x += state.ballVel.x * h;
             state.ballPos.z += state.ballVel.z * h;
-            state.ballPos.y = hole.groundHeightAt(state.ballPos.x, state.ballPos.z) + 0.18;
+            state.ballPos.y = hole.groundHeightAt(state.ballPos.x, state.ballPos.z) + BALL_R;
 
             // Cup capture check!
             const distCup = Math.hypot(state.ballPos.x - hole.pin.x, state.ballPos.z - hole.pin.y);
@@ -4303,7 +4326,7 @@
         // Stop condition
         const groundY = hole.groundHeightAt(state.ballPos.x, state.ballPos.z);
         const speedXZ = Math.hypot(state.ballVel.x, state.ballVel.z);
-        if (state.ballPos.y <= groundY + 0.22 && Math.abs(state.ballVel.y) < 0.25 && speedXZ < 0.18) {
+        if (state.ballPos.y <= groundY + BALL_R + 0.04 && Math.abs(state.ballVel.y) < 0.25 && speedXZ < 0.18) {
           finishShot();
         }
       }
@@ -4605,7 +4628,7 @@
         // Render Hole 1 of selected course behind creator!
         const hole1 = buildHoleData(course, 0);
         renderHole3D(hole1);
-        state.ballPos.set(0, hole1.teeBaseY + 0.18, 0);
+        state.ballPos.set(0, hole1.teeBaseY + BALL_R, 0);
         state.aimAngle = 0;
         rebuildGolferMesh();
         placeGolferAtBall();
@@ -4924,7 +4947,7 @@
         const homeHole = buildHoleData(COURSES[0], 0);
         renderHole3D(homeHole);
         rebuildGolferMesh();
-        state.ballPos.set(0, homeHole.teeBaseY + 0.18, 0);
+        state.ballPos.set(0, homeHole.teeBaseY + BALL_R, 0);
         placeGolferAtBall();
         aimGroup.visible = false;
         renderHomeUI();
