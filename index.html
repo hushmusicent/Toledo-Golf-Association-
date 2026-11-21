@@ -358,6 +358,23 @@
         gap: 16px;
       }
 
+      /* CREATOR LAYOUT FIX: the panel used to sit on top of the golfer, so you
+         could not see the character while customizing it. On portrait phones
+         the panel now docks to the bottom as a sheet and the golfer shows in
+         the free top half (the camera is shifted up to match, see tick()). */
+      @media (max-aspect-ratio: 1/1) {
+        #creator-screen {
+          align-items: flex-end;
+          justify-content: center;
+          padding: 0;
+        }
+        .creator-panel {
+          width: 100%;
+          max-height: 56vh;
+          border-radius: 14px 14px 0 0;
+        }
+      }
+
       .panel-title {
         font-family: var(--font-display);
         font-size: 26px;
@@ -4907,7 +4924,19 @@
           );
           camera.lookAt(0, 2, -105);
         } else if (state.mode === 'creator') {
-          // Close-up orbital camera on golfer on 1st tee
+          // Close-up orbital camera on golfer on 1st tee.
+          // Frame the golfer in the FREE area, not behind the panel:
+          // portrait = bottom sheet, so shift the view up into the top half;
+          // wide screen = left panel, so shift the view right of it.
+          const _panel = document.querySelector('.creator-panel');
+          const _panelW = _panel ? _panel.offsetWidth : 0;
+          if (window.innerWidth < window.innerHeight) {
+            camera.setViewOffset(window.innerWidth, window.innerHeight, 0, window.innerHeight * 0.20, window.innerWidth, window.innerHeight);
+          } else if (_panelW > 0) {
+            camera.setViewOffset(window.innerWidth, window.innerHeight, -_panelW / 2, 0, window.innerWidth, window.innerHeight);
+          } else {
+            camera.clearViewOffset();
+          }
           const ang = elapsed * 0.45;
           camera.position.set(
             golferGroup.position.x + Math.sin(ang) * 4.2,
@@ -4969,6 +4998,8 @@
               finishShot(); // watchdog: no real shot flies this long
             }
           }
+
+          if (state.mode !== 'creator') camera.clearViewOffset();
 
           // Camera tracking
           const dirX = -Math.sin(state.aimAngle);
