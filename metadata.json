@@ -1,0 +1,6 @@
+{
+  "name": "TGA Golf Tour — Toledo Golf Association",
+  "description": "Low-poly 3D PS1/Tiger Woods style golf tour across 7 Toledo-area courses with exact scorecards, 3-click swing, live time-of-day lighting, CPU rivals, Pro Shop, and skill progression.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

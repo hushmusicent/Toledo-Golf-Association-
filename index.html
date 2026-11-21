@@ -1,0 +1,3999 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>TGA Golf Tour — Toledo Golf Association</title>
+    <meta name="description" content="Low-poly 3D PS1/Tiger Woods style golf tour across 7 Toledo-area courses with exact scorecards, 3-click swing, live time-of-day lighting, CPU rivals, Pro Shop, and skill progression." />
+    <meta property="og:title" content="TGA Golf Tour — Toledo Golf Association" />
+    <meta property="og:description" content="Low-poly 3D PS1/Tiger Woods style golf tour across 7 Toledo-area courses with exact scorecards, 3-click swing, live time-of-day lighting, CPU rivals, Pro Shop, and skill progression." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+    <style>
+      :root {
+        --bg-panel: rgba(11, 22, 16, 0.9);
+        --bg-panel-solid: #0d1a13;
+        --bg-card: rgba(17, 32, 23, 0.94);
+        --bg-card-hover: rgba(24, 46, 33, 0.98);
+        --border-hair: rgba(212, 175, 86, 0.24);
+        --border-soft: rgba(255, 255, 255, 0.12);
+        --text-main: #f4f6f0;
+        --text-muted: #a6b7aa;
+        --gold: #e2b84f;
+        --gold-dark: #9e7922;
+        --green-cta: #2f9e52;
+        --green-cta-hover: #38b861;
+        --danger: #e05a52;
+        --cyan: #57c1e8;
+        --font-display: 'Barlow Condensed', system-ui, sans-serif;
+        --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0a140f;
+        color: var(--text-main);
+        font-family: var(--font-body);
+        user-select: none;
+      }
+
+      #viewport {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+      }
+
+      #viewport canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .tabular {
+        font-variant-numeric: tabular-nums;
+      }
+
+      button {
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+        color: inherit;
+        background: none;
+        transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+      }
+
+      button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: 2px;
+      }
+
+      /* HOME SCREEN */
+      #home-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        overflow-y: auto;
+        padding: 18px 20px 36px;
+        background: linear-gradient(180deg, rgba(8, 16, 12, 0.72) 0%, rgba(8, 16, 12, 0.54) 45%, rgba(8, 16, 12, 0.86) 100%);
+      }
+
+      .home-shell {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .build-strip {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 16px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-hair);
+        border-radius: 8px;
+      }
+
+      .build-tag {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--gold);
+      }
+
+      .career-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+
+      .career-bar strong {
+        color: var(--text-main);
+        font-family: var(--font-mono);
+      }
+
+      .hero-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 8px 4px;
+      }
+
+      .brand-lockup h1 {
+        font-family: var(--font-display);
+        font-size: clamp(2.1rem, 4.4vw, 3.35rem);
+        line-height: 0.98;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: #ffffff;
+        text-shadow: 0 3px 14px rgba(0, 0, 0, 0.7);
+      }
+
+      .brand-lockup p {
+        margin-top: 6px;
+        font-size: 14px;
+        color: #d6e2d8;
+        max-width: 60ch;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.75);
+      }
+
+      .home-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .btn-secondary {
+        padding: 10px 16px;
+        min-height: 42px;
+        border-radius: 6px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-main);
+        white-space: nowrap;
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--gold);
+        background: rgba(24, 46, 33, 0.96);
+      }
+
+      .btn-primary {
+        padding: 11px 20px;
+        min-height: 44px;
+        border-radius: 6px;
+        background: var(--green-cta);
+        border: 1px solid #4fd177;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        color: #ffffff;
+        white-space: nowrap;
+      }
+
+      .btn-primary:hover {
+        background: var(--green-cta-hover);
+      }
+
+      .tod-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+      }
+
+      .tod-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+
+      .tod-seg {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .tod-btn {
+        padding: 8px 13px;
+        min-height: 38px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid transparent;
+        white-space: nowrap;
+      }
+
+      .tod-btn.active {
+        color: #101c14;
+        background: var(--gold);
+        border-color: #ffe28a;
+        font-weight: 700;
+      }
+
+      .course-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+        gap: 14px;
+      }
+
+      .course-card {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px;
+        text-align: left;
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .course-card:hover {
+        background: var(--bg-card-hover);
+        border-color: var(--gold);
+        transform: translateY(-2px);
+      }
+
+      .course-swatch {
+        height: 5px;
+        width: 100%;
+        border-radius: 3px;
+      }
+
+      .course-title {
+        font-family: var(--font-display);
+        font-size: 24px;
+        line-height: 1.05;
+        font-weight: 700;
+        color: #ffffff;
+      }
+
+      .course-meta {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--gold);
+        margin-top: 4px;
+      }
+
+      .course-desc {
+        font-size: 13px;
+        color: var(--text-muted);
+        line-height: 1.45;
+      }
+
+      .course-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .course-cta {
+        font-weight: 700;
+        color: #7ee39b;
+        font-size: 13px;
+      }
+
+      /* GOLFER CREATOR SCREEN */
+      #creator-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 25;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 20px;
+        pointer-events: none;
+      }
+
+      .creator-panel {
+        pointer-events: auto;
+        width: min(440px, 100%);
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        padding: 20px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-hair);
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .panel-title {
+        font-family: var(--font-display);
+        font-size: 26px;
+        line-height: 1.05;
+        text-transform: uppercase;
+        color: #fff;
+      }
+
+      .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      .field-label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+
+      .text-input {
+        width: 100%;
+        min-height: 42px;
+        padding: 9px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border-soft);
+        background: rgba(6, 12, 9, 0.9);
+        color: #ffffff;
+        font-family: var(--font-body);
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .swatch-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .swatch-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 6px;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+      }
+
+      .swatch-btn.active {
+        border-color: #ffffff;
+        box-shadow: 0 0 0 2px var(--gold);
+        transform: scale(1.06);
+      }
+
+      .seg-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .seg-btn {
+        min-height: 40px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+
+      .seg-btn.active {
+        background: var(--gold);
+        color: #0e1911;
+        border-color: #ffe394;
+        font-weight: 700;
+      }
+
+      /* IN-GAME HUD */
+      #game-hud {
+        position: fixed;
+        inset: 0;
+        z-index: 15;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 12px;
+      }
+
+      .hud-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .hud-box {
+        pointer-events: auto;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 10px 13px;
+      }
+
+      .hole-header {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .hole-num {
+        font-family: var(--font-display);
+        font-size: 26px;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--gold);
+      }
+
+      .hole-specs {
+        font-family: var(--font-mono);
+        font-size: 13px;
+        color: #ffffff;
+      }
+
+      .hole-sub {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--text-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .hud-top-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+      }
+
+      .hud-toolbar {
+        pointer-events: auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
+      }
+
+      .hud-btn {
+        min-height: 36px;
+        padding: 6px 11px;
+        border-radius: 6px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-main);
+        white-space: nowrap;
+      }
+
+      .hud-btn:hover {
+        border-color: var(--gold);
+      }
+
+      .hud-btn.active {
+        background: var(--gold);
+        color: #101b13;
+        border-color: #ffe394;
+      }
+
+      .hud-tod-compact {
+        pointer-events: auto;
+        display: flex;
+        gap: 4px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 7px;
+        padding: 4px;
+      }
+
+      .hud-tod-btn {
+        padding: 5px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 5px;
+        color: var(--text-muted);
+      }
+
+      .hud-tod-btn.active {
+        background: var(--gold);
+        color: #101c13;
+        font-weight: 700;
+      }
+
+      .hud-middle {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 8px;
+      }
+
+      .tactical-panel {
+        pointer-events: auto;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 10px 13px;
+        min-width: 195px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .dist-readout {
+        font-family: var(--font-display);
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1;
+        color: #ffffff;
+      }
+
+      .tactical-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .tactical-val {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        color: #ffffff;
+      }
+
+      .elev-up { color: #ffba52; }
+      .elev-down { color: #6cd6ff; }
+      .elev-flat { color: #b9cbbd; }
+
+      .wind-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .wind-arrow {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        text-align: center;
+        line-height: 18px;
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--cyan);
+      }
+
+      .break-hint {
+        margin-top: 2px;
+        padding-top: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 12px;
+        font-weight: 600;
+        color: #8ee8a8;
+      }
+
+      .minimap-wrap {
+        pointer-events: auto;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      #minimap-canvas {
+        width: 128px;
+        height: 170px;
+        border-radius: 5px;
+        background: #14261a;
+        display: block;
+      }
+
+      .minimap-cap {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+
+      /* BOTTOM SWING DOCK */
+      .hud-bottom {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        margin-top: auto;
+      }
+
+      .toast-banner {
+        padding: 8px 18px;
+        border-radius: 6px;
+        background: rgba(12, 24, 17, 0.94);
+        border: 1px solid var(--gold);
+        font-family: var(--font-display);
+        font-size: 20px;
+        letter-spacing: 0.04em;
+        color: #ffffff;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .swing-dock {
+        pointer-events: auto;
+        width: min(680px, 100%);
+        background: var(--bg-panel);
+        border: 1px solid var(--border-hair);
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .dock-top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .club-picker,
+      .aim-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .step-btn {
+        min-width: 40px;
+        min-height: 40px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        font-size: 15px;
+        font-weight: 700;
+        color: #ffffff;
+      }
+
+      .step-btn:hover {
+        border-color: var(--gold);
+      }
+
+      .club-readout {
+        min-width: 145px;
+        text-align: center;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .club-name {
+        font-family: var(--font-display);
+        font-size: 19px;
+        font-weight: 700;
+        color: var(--gold);
+        line-height: 1.05;
+      }
+
+      .club-dist {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .meter-section {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .meter-labels {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .meter-track {
+        position: relative;
+        height: 28px;
+        border-radius: 6px;
+        background: #0a120d;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        overflow: hidden;
+      }
+
+      .power-fill {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 0%;
+        background: linear-gradient(90deg, #2fb35b 0%, #e6c149 75%, #e5534b 100%);
+      }
+
+      .power-target-tick {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: #ffffff;
+        box-shadow: 0 0 6px #ffffff;
+        transform: translateX(-50%);
+        z-index: 3;
+      }
+
+      .acc-zone {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(56, 209, 108, 0.38);
+        border-left: 1px solid #68f097;
+        border-right: 1px solid #68f097;
+      }
+
+      .acc-center-line {
+        position: absolute;
+        left: 50%;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #ffffff;
+        transform: translateX(-50%);
+      }
+
+      .acc-needle {
+        position: absolute;
+        top: 2px;
+        bottom: 2px;
+        width: 6px;
+        border-radius: 3px;
+        background: #ffdf6b;
+        box-shadow: 0 0 8px rgba(255, 223, 107, 0.9);
+        left: 50%;
+        transform: translateX(-50%);
+      }
+
+      .swing-btn {
+        width: 100%;
+        min-height: 54px;
+        border-radius: 8px;
+        background: var(--green-cta);
+        border: 2px solid #59de82;
+        font-family: var(--font-display);
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        color: #ffffff;
+        text-transform: uppercase;
+      }
+
+      .swing-btn.phase-power {
+        background: #d4891c;
+        border-color: #ffd06b;
+      }
+
+      .swing-btn.phase-acc {
+        background: #2383c7;
+        border-color: #77ceff;
+      }
+
+      .swing-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* MODALS (Scorecard, Pro Shop, Skills, Round End) */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        background: rgba(5, 11, 8, 0.82);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+
+      .modal-card {
+        width: min(920px, 100%);
+        max-height: 90vh;
+        overflow-y: auto;
+        background: var(--bg-panel-solid);
+        border: 1px solid var(--border-hair);
+        border-radius: 10px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .modal-title {
+        font-family: var(--font-display);
+        font-size: 28px;
+        text-transform: uppercase;
+        color: #ffffff;
+      }
+
+      .table-wrap {
+        width: 100%;
+        overflow-x: auto;
+      }
+
+      table.score-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        text-align: center;
+      }
+
+      table.score-table th,
+      table.score-table td {
+        padding: 7px 6px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      table.score-table th {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--gold);
+        font-weight: 700;
+      }
+
+      .score-eagle { background: rgba(226, 184, 79, 0.28); color: #ffe48f; font-weight: 700; }
+      .score-birdie { background: rgba(47, 158, 82, 0.3); color: #8ff0ab; font-weight: 700; }
+      .score-bogey { background: rgba(224, 90, 82, 0.2); color: #ffaaa5; }
+      .score-double { background: rgba(224, 90, 82, 0.38); color: #ffd4d1; font-weight: 700; }
+
+      .shop-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .shop-item {
+        padding: 14px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .shop-item.owned {
+        border-color: rgba(79, 209, 119, 0.45);
+      }
+
+      .shop-name {
+        font-family: var(--font-display);
+        font-size: 20px;
+        color: #fff;
+      }
+
+      .shop-perk {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .skill-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      @media (max-width: 680px) {
+        #game-hud {
+          padding: 8px;
+        }
+        .tactical-panel {
+          min-width: 155px;
+          padding: 8px 10px;
+        }
+        .dist-readout {
+          font-size: 24px;
+        }
+        #minimap-canvas {
+          width: 96px;
+          height: 128px;
+        }
+        .swing-dock {
+          padding: 10px;
+        }
+        .club-readout {
+          min-width: 118px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="viewport"></div>
+
+    <!-- HOME SCREEN -->
+    <div id="home-screen">
+      <div class="home-shell">
+        <div class="build-strip">
+          <div class="build-tag">BUILD v2026.11.21.1</div>
+          <div class="career-bar tabular">
+            <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
+            <span>Round Points: <strong id="home-points">0 pts</strong></span>
+            <span>Tour Gear: <strong id="home-gear-count">0 / 8</strong></span>
+          </div>
+        </div>
+
+        <div class="hero-row">
+          <div class="brand-lockup">
+            <h1>TGA Golf Tour — Toledo Golf Association</h1>
+            <p>PS1-era low-poly tour across 7 authentic Toledo-area courses. Exact scorecard yardages, live sun shadows, 3-click swing, CPU rivals, Pro Shop &amp; skills.</p>
+          </div>
+          <div class="home-actions">
+            <button class="btn-secondary" id="btn-open-shop">Pro Shop (8)</button>
+            <button class="btn-secondary" id="btn-open-skills">Golfer Skills</button>
+          </div>
+        </div>
+
+        <div class="tod-bar">
+          <span class="tod-label">Time of Day &amp; Live Shadows</span>
+          <div class="tod-seg" id="home-tod-picker">
+            <button class="tod-btn" data-tod="morning">Morning</button>
+            <button class="tod-btn active" data-tod="midday">Midday</button>
+            <button class="tod-btn" data-tod="golden">Golden Hour</button>
+            <button class="tod-btn" data-tod="sunset">Sunset</button>
+          </div>
+        </div>
+
+        <div class="course-grid" id="course-grid"></div>
+      </div>
+    </div>
+
+    <!-- GOLFER CREATOR -->
+    <div id="creator-screen" class="hidden">
+      <div class="creator-panel">
+        <div>
+          <div class="build-tag" id="creator-course-label">INVERNESS CLUB · PAR 71 · 6,917 YD</div>
+          <h2 class="panel-title">Create Your Golfer</h2>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="golfer-name-input">Golfer Name</label>
+          <input class="text-input" id="golfer-name-input" type="text" maxlength="18" value="T. Glass" />
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Shirt Colour</span>
+          <div class="swatch-row" id="shirt-swatches"></div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Skin Tone</span>
+          <div class="swatch-row" id="skin-swatches"></div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Headwear</span>
+          <div class="seg-row" id="hat-picker">
+            <button class="seg-btn active" data-hat="cap">Cap</button>
+            <button class="seg-btn" data-hat="visor">Visor</button>
+            <button class="seg-btn" data-hat="none">None</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Body Build</span>
+          <div class="seg-row" id="build-picker">
+            <button class="seg-btn active" data-build="standard">Standard</button>
+            <button class="seg-btn" data-build="bigguy">Big Guy</button>
+            <button class="seg-btn" data-build="biglou">Big Lou</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; padding-top:4px;">
+          <button class="btn-secondary" id="btn-creator-back" style="flex:1;">Back</button>
+          <button class="btn-primary" id="btn-tee-off" style="flex:2;">Tee Off Hole 1</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IN-GAME HUD -->
+    <div id="game-hud" class="hidden">
+      <div class="hud-top">
+        <div class="hud-box">
+          <div class="hole-header">
+            <span class="hole-num tabular" id="hud-hole">HOLE 1</span>
+            <span class="hole-specs tabular" id="hud-hole-specs">PAR 4 · 391 YD</span>
+          </div>
+          <div class="hole-sub tabular">
+            <span id="hud-course-name">Inverness Club</span>
+            <span>·</span>
+            <span id="hud-stroke">Stroke 1</span>
+            <span>·</span>
+            <span id="hud-total-score">Score: E (0)</span>
+          </div>
+        </div>
+
+        <div class="hud-top-right">
+          <div class="hud-toolbar">
+            <button class="hud-btn" id="btn-flyover">Flyover</button>
+            <button class="hud-btn" id="btn-scorecard">Scorecard</button>
+            <button class="hud-btn" id="btn-hud-shop">Shop / Skills</button>
+            <button class="hud-btn" id="btn-quit">Courses</button>
+          </div>
+          <div class="hud-tod-compact" id="hud-tod-picker">
+            <button class="hud-tod-btn" data-tod="morning">Morning</button>
+            <button class="hud-tod-btn active" data-tod="midday">Midday</button>
+            <button class="hud-tod-btn" data-tod="golden">Golden</button>
+            <button class="hud-tod-btn" data-tod="sunset">Sunset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-middle">
+        <div class="tactical-panel">
+          <div class="dist-readout tabular" id="hud-dist">391 YD</div>
+          <div class="tactical-row">
+            <span>Lie</span>
+            <span class="tactical-val" id="hud-lie">Tee</span>
+          </div>
+          <div class="tactical-row">
+            <span>Slope</span>
+            <span class="tactical-val elev-flat" id="hud-elev">LEVEL</span>
+          </div>
+          <div class="tactical-row">
+            <span>Wind</span>
+            <span class="tactical-val wind-wrap">
+              <span class="wind-arrow" id="hud-wind-arrow">↑</span>
+              <span id="hud-wind-speed" class="tabular">6 mph</span>
+            </span>
+          </div>
+          <div class="break-hint hidden" id="hud-break-hint">Break: 1.2 ft L → R</div>
+        </div>
+
+        <div class="minimap-wrap">
+          <canvas id="minimap-canvas" width="128" height="170"></canvas>
+          <span class="minimap-cap" id="minimap-cap">HOLE MAP</span>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="toast-banner hidden" id="shot-toast">BIRDIE!</div>
+
+        <div class="swing-dock" id="swing-dock">
+          <div class="dock-top-row">
+            <div class="aim-controls">
+              <button class="step-btn" id="btn-aim-left" title="Aim Left (A / Left Arrow)">◀</button>
+              <span style="font-size:11px;font-weight:700;color:var(--text-muted);padding:0 4px;">AIM</span>
+              <button class="step-btn" id="btn-aim-right" title="Aim Right (D / Right Arrow)">▶</button>
+            </div>
+
+            <div class="club-picker">
+              <button class="step-btn" id="btn-club-prev" title="Shorter Club">−</button>
+              <div class="club-readout">
+                <div class="club-name" id="hud-club-name">Driver</div>
+                <div class="club-dist tabular" id="hud-club-dist">260 yd max</div>
+              </div>
+              <button class="step-btn" id="btn-club-next" title="Longer Club">+</button>
+            </div>
+          </div>
+
+          <div class="meter-section">
+            <div class="meter-labels">
+              <span id="meter-phase-label">TAP SWING TO START POWER</span>
+              <span class="tabular" id="meter-power-readout">0%</span>
+            </div>
+            <div class="meter-track" id="power-track">
+              <div class="power-fill" id="power-fill"></div>
+              <div class="power-target-tick hidden" id="power-target-tick"></div>
+            </div>
+            <div class="meter-track" id="acc-track" style="height:22px;">
+              <div class="acc-zone" id="acc-zone" style="width:20%;"></div>
+              <div class="acc-center-line"></div>
+              <div class="acc-needle" id="acc-needle"></div>
+            </div>
+          </div>
+
+          <button class="swing-btn" id="btn-swing">SWING</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCORECARD & LEADERBOARD MODAL -->
+    <div id="scorecard-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title" id="sc-title">Scorecard &amp; Leaderboard</h2>
+            <div style="font-size:13px;color:var(--text-muted);" id="sc-subtitle"></div>
+          </div>
+          <button class="btn-secondary" id="btn-close-scorecard">Close</button>
+        </div>
+
+        <div class="table-wrap" id="sc-tables"></div>
+
+        <div>
+          <h3 style="font-family:var(--font-display);font-size:20px;margin-bottom:8px;color:var(--gold);">TOURNAMENT LEADERBOARD</h3>
+          <div class="table-wrap" id="sc-leaderboard"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRO SHOP & SKILLS MODAL -->
+    <div id="shop-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title" id="shop-modal-title">Pro Shop &amp; Golfer Skills</h2>
+            <div class="career-bar tabular" style="margin-top:4px;">
+              <span>Career Earnings: <strong id="shop-earnings">$0</strong></span>
+              <span>Round Points: <strong id="shop-points">0 pts</strong></span>
+            </div>
+          </div>
+          <button class="btn-secondary" id="btn-close-shop">Close</button>
+        </div>
+
+        <div>
+          <h3 style="font-family:var(--font-display);font-size:20px;color:var(--gold);margin-bottom:8px;">SKILLS (+1 PER UPGRADE WITH ROUND POINTS)</h3>
+          <div style="display:flex;flex-direction:column;gap:8px;" id="skills-list"></div>
+        </div>
+
+        <div>
+          <h3 style="font-family:var(--font-display);font-size:20px;color:var(--gold);margin-bottom:8px;">PRO SHOP (8 TOUR ITEMS)</h3>
+          <div class="shop-grid" id="shop-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- END OF ROUND MODAL -->
+    <div id="round-end-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title" id="end-title">Round Complete</h2>
+            <div style="font-size:13px;color:var(--text-muted);" id="end-subtitle"></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;" id="end-stats"></div>
+        <div class="table-wrap" id="end-leaderboard"></div>
+        <div class="table-wrap" id="end-scorecard"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;">
+          <button class="btn-secondary" id="btn-end-courses">All Courses</button>
+          <button class="btn-primary" id="btn-play-again">PLAY AGAIN</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+      // =========================================================================
+      // 1. EXACT COURSE DATA (Toledo Golf Association — 7 Courses)
+      // =========================================================================
+      const COURSES = [
+        {
+          id: 'inverness',
+          name: 'Inverness Club, Toledo',
+          shortName: 'Inverness Club',
+          location: 'Donald Ross, hosted US Opens, 4601 Dorr St.',
+          parTotal: 71,
+          yardsTotal: 6917,
+          holesCount: 18,
+          pars: [4,4,3,4,3,4,4,5,4, 4,4,3,5,4,4,4,4,4],
+          yards: [391,435,201,432,166,429,434,558,367, 383,373,195,536,419,440,404,421,333],
+          palette: {
+            fairwayA: 0x2a7d43,
+            fairwayB: 0x246e3a,
+            rough: 0x194d29,
+            greenA: 0x38a355,
+            greenB: 0x31944b,
+            collar: 0x2d8746,
+            sand: 0xe6d29c,
+            water: 0x226880,
+            accent: '#d9b14a',
+            treeA: 0x1c592d,
+            treeB: 0x286b38,
+            hillTint: 0x20592f,
+            waterBias: 0.25,
+          },
+        },
+        {
+          id: 'toledo-cc',
+          name: 'Toledo Country Club',
+          shortName: 'Toledo CC',
+          location: 'Gold tees, Maumee River',
+          parTotal: 70,
+          yardsTotal: 6433,
+          holesCount: 18,
+          pars: [4,4,3,4,4,5,3,4,4, 5,4,3,4,3,4,4,3,5],
+          yards: [322,417,192,408,382,484,154,421,440, 593,380,241,375,149,394,381,206,494],
+          palette: {
+            fairwayA: 0x2d8a62,
+            fairwayB: 0x267855,
+            rough: 0x1b5941,
+            greenA: 0x3bb57e,
+            greenB: 0x34a170,
+            collar: 0x319468,
+            sand: 0xe4d5ab,
+            water: 0x1e6ea6,
+            accent: '#4cb5e6',
+            treeA: 0x1e6146,
+            treeB: 0x2b7556,
+            hillTint: 0x22634a,
+            waterBias: 0.72,
+          },
+        },
+        {
+          id: 'highland-meadows',
+          name: 'Highland Meadows, Sylvania',
+          shortName: 'Highland Meadows',
+          location: 'Sylvania, Classic Tour Parkland',
+          parTotal: 71,
+          yardsTotal: 6379,
+          holesCount: 18,
+          pars: [4,4,4,4,3,4,4,5,5, 4,3,4,4,4,3,5,3,4],
+          yards: [369,408,391,332,183,390,402,516,500, 338,155,380,374,409,154,582,130,366],
+          palette: {
+            fairwayA: 0x3a9442,
+            fairwayB: 0x32823a,
+            rough: 0x25632b,
+            greenA: 0x4bb854,
+            greenB: 0x42a64a,
+            collar: 0x3f9c46,
+            sand: 0xe8d7a5,
+            water: 0x287894,
+            accent: '#63cf6b',
+            treeA: 0x266b2d,
+            treeB: 0x338239,
+            hillTint: 0x2c6e32,
+            waterBias: 0.35,
+          },
+        },
+        {
+          id: 'ottawa-park',
+          name: 'Ottawa Park, Toledo',
+          shortName: 'Ottawa Park',
+          location: 'Historic Public Parkland, Toledo',
+          parTotal: 71,
+          yardsTotal: 5079,
+          holesCount: 18,
+          pars: [5,4,4,5,3,4,3,4,4, 4,4,3,4,3,5,4,4,4],
+          yards: [502,266,281,473,98,292,124,316,274, 293,242,103,233,96,512,345,304,325],
+          palette: {
+            fairwayA: 0x439c47,
+            fairwayB: 0x3a8a3e,
+            rough: 0x2b6b2f,
+            greenA: 0x54bf58,
+            greenB: 0x4aad4e,
+            collar: 0x47a34b,
+            sand: 0xdfd0a0,
+            water: 0x2a7d96,
+            accent: '#78d97c',
+            treeA: 0x2b6e2f,
+            treeB: 0x3b853e,
+            hillTint: 0x327536,
+            waterBias: 0.4,
+          },
+        },
+        {
+          id: 'detwiler-park',
+          name: 'Detwiler Park, Toledo',
+          shortName: 'Detwiler Park',
+          location: 'Arthur Hills, Maumee Bay',
+          parTotal: 71,
+          yardsTotal: 6620,
+          holesCount: 18,
+          pars: [4,3,4,4,5,3,4,3,5, 5,4,3,4,5,4,3,4,4],
+          yards: [371,190,375,410,526,180,425,154,502, 506,381,223,420,515,408,198,384,452],
+          palette: {
+            fairwayA: 0x2e8c66,
+            fairwayB: 0x277a59,
+            rough: 0x1e5c45,
+            greenA: 0x3cb886,
+            greenB: 0x35a678,
+            collar: 0x329970,
+            sand: 0xe3d4a6,
+            water: 0x227ea6,
+            accent: '#49cca0',
+            treeA: 0x1f6149,
+            treeB: 0x2c785c,
+            hillTint: 0x236950,
+            waterBias: 0.78,
+          },
+        },
+        {
+          id: 'bedford-hills',
+          name: 'Bedford Hills, Temperance',
+          shortName: 'Bedford Hills',
+          location: 'Buckeye / Wolverine',
+          parTotal: 71,
+          yardsTotal: 6124,
+          holesCount: 18,
+          pars: [4,4,4,3,4,4,3,4,5, 4,5,4,3,4,4,4,3,5],
+          yards: [335,354,342,150,391,342,172,350,481, 321,573,397,191,357,391,375,182,420],
+          palette: {
+            fairwayA: 0x4b993a,
+            fairwayB: 0x418732,
+            rough: 0x316625,
+            greenA: 0x5eb849,
+            greenB: 0x52a63f,
+            collar: 0x4ea13c,
+            sand: 0xe5d39f,
+            water: 0x2b7a91,
+            accent: '#87d457',
+            treeA: 0x366e27,
+            treeB: 0x488735,
+            hillTint: 0x3d782d,
+            waterBias: 0.35,
+          },
+        },
+        {
+          id: 'collins-park',
+          name: 'Collins Park, Toledo',
+          shortName: 'Collins Park',
+          location: '9 HOLES ONLY · Municipal Classic, Toledo',
+          parTotal: 36,
+          yardsTotal: 2980,
+          holesCount: 9,
+          pars: [4,4,4,4,5,3,4,4,4],
+          yards: [351,276,264,355,496,157,269,392,420],
+          palette: {
+            fairwayA: 0x489e4b,
+            fairwayB: 0x3e8c41,
+            rough: 0x2d6b30,
+            greenA: 0x58bf5b,
+            greenB: 0x4dad50,
+            collar: 0x4aa64d,
+            sand: 0xe2d3a3,
+            water: 0x2d7b91,
+            accent: '#7cd97f',
+            treeA: 0x2d6e30,
+            treeB: 0x3f8742,
+            hillTint: 0x367539,
+            waterBias: 0.28,
+          },
+        },
+      ];
+
+      const CLUBS = [
+        { name: 'Driver', maxYards: 260, loftDeg: 11, rollFactor: 1.11, wood: true },
+        { name: '3-Wood', maxYards: 230, loftDeg: 15, rollFactor: 1.07, wood: true },
+        { name: '5-Iron', maxYards: 180, loftDeg: 24, rollFactor: 1.04, wood: false },
+        { name: '7-Iron', maxYards: 155, loftDeg: 32, rollFactor: 1.02, wood: false },
+        { name: '9-Iron', maxYards: 130, loftDeg: 40, rollFactor: 0.99, wood: false },
+        { name: 'PW', maxYards: 110, loftDeg: 46, rollFactor: 0.96, wood: false },
+        { name: 'SW', maxYards: 90, loftDeg: 54, rollFactor: 0.92, wood: false },
+        { name: 'Putter', maxYards: 32, loftDeg: 0, rollFactor: 1.0, wood: false },
+      ];
+
+      const PRO_SHOP_ITEMS = [
+        { id: 'albatross_polo', name: 'Albatross Polo', price: 1200, perk: 'Tour tailoring (+1.5% sweet spot)' },
+        { id: 'tour_spikes', name: 'Tour Proven Spikes', price: 1800, perk: 'Firm footing (+3% rough recovery)' },
+        { id: 'major_glove', name: 'Major Maker Glove', price: 2400, perk: 'Grip boost (+3 yd carry)' },
+        { id: 'tour_visor_pro', name: 'Tour Visor Pro', price: 1500, perk: 'Sun shield (+2% accuracy zone)' },
+        { id: 'bunker_slacks', name: 'Bunker Buster Slacks', price: 2200, perk: 'Sand poise (+6% bunker distance)' },
+        { id: 'sunday_hoodie', name: 'Sunday Red Hoodie', price: 3500, perk: 'Championship red (+4 yd carry)' },
+        { id: 'golden_cleats', name: 'Golden Cleats', price: 5000, perk: 'Torque spikes (+5 yd & tighter dispersion)' },
+        { id: 'claret_crown', name: 'Claret Crown', price: 9000, perk: 'Royal prestige (+5 yd & +3% sweet spot)' },
+      ];
+
+      const RIVALS_META = [
+        { name: 'A. Fairchild', skillBias: -0.14 },
+        { name: 'B. Thornton', skillBias: -0.02 },
+        { name: 'C. Whitfield', skillBias: 0.12 },
+      ];
+
+      const TIME_OF_DAY = {
+        morning: {
+          label: 'Morning',
+          sunPos: [160, 72, 95],
+          sunColor: 0xffcfa6,
+          sunIntensity: 1.95,
+          hemiSky: 0x9ac4ed,
+          hemiGround: 0x3b4d2b,
+          hemiIntensity: 0.8,
+          skyTop: '#568bc4',
+          skyHorizon: '#f8be94',
+          sunDisc: '#fff1d0',
+          fogColor: 0xf0be97,
+          fogDensity: 0.00145,
+          exposure: 1.06,
+        },
+        midday: {
+          label: 'Midday',
+          sunPos: [85, 220, 75],
+          sunColor: 0xfffaf2,
+          sunIntensity: 2.1,
+          hemiSky: 0x87c6ff,
+          hemiGround: 0x355c32,
+          hemiIntensity: 0.9,
+          skyTop: '#266fc4',
+          skyHorizon: '#b6defa',
+          sunDisc: '#ffffff',
+          fogColor: 0xb3daf5,
+          fogDensity: 0.00105,
+          exposure: 1.05,
+        },
+        golden: {
+          label: 'Golden Hour',
+          sunPos: [-190, 52, -70],
+          sunColor: 0xff9a3c,
+          sunIntensity: 2.05,
+          hemiSky: 0x7987b8,
+          hemiGround: 0x45351f,
+          hemiIntensity: 0.72,
+          skyTop: '#3e538c',
+          skyHorizon: '#ffaa55',
+          sunDisc: '#ffd87a',
+          fogColor: 0xf29f54,
+          fogDensity: 0.00155,
+          exposure: 1.08,
+        },
+        sunset: {
+          label: 'Sunset',
+          sunPos: [-210, 32, -110],
+          sunColor: 0xff708a,
+          sunIntensity: 1.85,
+          hemiSky: 0x624d8f,
+          hemiGround: 0x2d2438,
+          hemiIntensity: 0.68,
+          skyTop: '#2b2054',
+          skyHorizon: '#f07898',
+          sunDisc: '#ff9882',
+          fogColor: 0xba688e,
+          fogDensity: 0.00165,
+          exposure: 1.1,
+        },
+      };
+
+      const SHIRT_COLORS = [
+        '#1f7a44', '#c9342c', '#205ba8', '#e2b84f',
+        '#f2f4f0', '#23282d', '#733899', '#e06e26',
+      ];
+      const SKIN_TONES = ['#f7d3b5', '#e4b48c', '#c78c60', '#9c643f', '#6e4228', '#4a2a19'];
+
+      // =========================================================================
+      // 2. SAVE STATE (localStorage)
+      // =========================================================================
+      const STORAGE_KEY = 'tga_golf_tour_save_v1';
+      function loadSave() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+              careerEarnings: Number(parsed.careerEarnings) || 0,
+              roundPoints: Number(parsed.roundPoints) || 0,
+              ownedItems: Array.isArray(parsed.ownedItems) ? parsed.ownedItems : [],
+              equippedItems: Array.isArray(parsed.equippedItems) ? parsed.equippedItems : [],
+              skills: {
+                power: Number(parsed.skills?.power) || 0,
+                accuracy: Number(parsed.skills?.accuracy) || 0,
+                shortGame: Number(parsed.skills?.shortGame) || 0,
+              },
+              bestScores: parsed.bestScores || {},
+              tod: parsed.tod && TIME_OF_DAY[parsed.tod] ? parsed.tod : 'midday',
+              golfer: {
+                name: parsed.golfer?.name || 'T. Glass',
+                shirt: parsed.golfer?.shirt || SHIRT_COLORS[0],
+                skin: parsed.golfer?.skin || SKIN_TONES[1],
+                hat: parsed.golfer?.hat || 'cap',
+                build: parsed.golfer?.build || 'standard',
+              },
+            };
+          }
+        } catch {}
+        return {
+          careerEarnings: 0,
+          roundPoints: 0,
+          ownedItems: [],
+          equippedItems: [],
+          skills: { power: 0, accuracy: 0, shortGame: 0 },
+          bestScores: {},
+          tod: 'midday',
+          golfer: {
+            name: 'T. Glass',
+            shirt: SHIRT_COLORS[0],
+            skin: SKIN_TONES[1],
+            hat: 'cap',
+            build: 'standard',
+          },
+        };
+      }
+      const saveData = loadSave();
+      function persistSave() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+        } catch {}
+      }
+
+      // =========================================================================
+      // 3. SEEDED PRNG & AUDIO SYNTH
+      // =========================================================================
+      function mulberry32(seed) {
+        let a = seed >>> 0;
+        return function () {
+          a |= 0;
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function hashStr(str) {
+        let h = 2166136261;
+        for (let i = 0; i < str.length; i++) {
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
+
+      let audioCtx = null;
+      function getAudio() {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) audioCtx = new AC();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+        return audioCtx;
+      }
+
+      function playStrikeSound(type) {
+        const ctx = getAudio();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        if (type === 'wood') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(65, now + 0.14);
+          gain.gain.setValueAtTime(0.32, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        } else if (type === 'putt') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.exponentialRampToValueAtTime(170, now + 0.06);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        } else if (type === 'cup') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.setValueAtTime(1174, now + 0.08);
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+        } else if (type === 'splash') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(160, now);
+          osc.frequency.exponentialRampToValueAtTime(48, now + 0.25);
+          gain.gain.setValueAtTime(0.16, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        } else {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.exponentialRampToValueAtTime(95, now + 0.11);
+          gain.gain.setValueAtTime(0.26, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        }
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.36);
+      }
+
+      // =========================================================================
+      // 4. THREE.JS RENDERER, SCENE, LIGHTING & SKY DOME
+      // =========================================================================
+      const viewportEl = document.getElementById('viewport');
+      const isSoftwareGl = (() => {
+        const gl = document.createElement('canvas').getContext('webgl2');
+        if (!gl) return true;
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
+        const gpu = String(gl.getParameter(param));
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+        return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+      })();
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: !isSoftwareGl,
+        powerPreference: 'high-performance',
+      });
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = isSoftwareGl ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+      viewportEl.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(56, window.innerWidth / window.innerHeight, 0.4, 1800);
+
+      try {
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        pmrem.dispose();
+      } catch {}
+
+      // Sky gradient dome + sun disc
+      const skyCanvas = document.createElement('canvas');
+      skyCanvas.width = 4;
+      skyCanvas.height = 256;
+      const skyCtx = skyCanvas.getContext('2d');
+      const skyTexture = new THREE.CanvasTexture(skyCanvas);
+      skyTexture.colorSpace = THREE.SRGBColorSpace;
+      const skyDome = new THREE.Mesh(
+        new THREE.SphereGeometry(1100, 16, 12),
+        new THREE.MeshBasicMaterial({ map: skyTexture, side: THREE.BackSide, fog: false, depthWrite: false })
+      );
+      scene.add(skyDome);
+
+      const sunDisc = new THREE.Mesh(
+        new THREE.CircleGeometry(28, 12),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, depthWrite: false })
+      );
+      scene.add(sunDisc);
+
+      // Lights
+      const hemiLight = new THREE.HemisphereLight(0x87c6ff, 0x355c32, 0.9);
+      scene.add(hemiLight);
+
+      const sunLight = new THREE.DirectionalLight(0xfffaf2, 2.1);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = isSoftwareGl ? 1024 : 2048;
+      sunLight.shadow.mapSize.height = isSoftwareGl ? 1024 : 2048;
+      sunLight.shadow.camera.near = 10;
+      sunLight.shadow.camera.far = 650;
+      const sd = 175;
+      sunLight.shadow.camera.left = -sd;
+      sunLight.shadow.camera.right = sd;
+      sunLight.shadow.camera.top = sd;
+      sunLight.shadow.camera.bottom = -sd;
+      sunLight.shadow.bias = -0.0007;
+      sunLight.shadow.normalBias = 0.03;
+      scene.add(sunLight);
+      scene.add(sunLight.target);
+
+      scene.fog = new THREE.FogExp2(0xb3daf5, 0.00105);
+
+      const shadowFocus = new THREE.Vector3(0, 0, -100);
+
+      function applyTimeOfDay(todKey) {
+        const cfg = TIME_OF_DAY[todKey] || TIME_OF_DAY.midday;
+        saveData.tod = todKey;
+        persistSave();
+
+        // Update sky gradient texture
+        const grad = skyCtx.createLinearGradient(0, 0, 0, 256);
+        grad.addColorStop(0.0, cfg.skyTop);
+        grad.addColorStop(0.48, cfg.skyHorizon);
+        grad.addColorStop(1.0, cfg.skyHorizon);
+        skyCtx.fillStyle = grad;
+        skyCtx.fillRect(0, 0, 4, 256);
+        skyTexture.needsUpdate = true;
+
+        sunLight.color.setHex(cfg.sunColor);
+        sunLight.intensity = cfg.sunIntensity;
+        hemiLight.color.setHex(cfg.hemiSky);
+        hemiLight.groundColor.setHex(cfg.hemiGround);
+        hemiLight.intensity = cfg.hemiIntensity;
+        scene.fog.color.setHex(cfg.fogColor);
+        scene.fog.density = cfg.fogDensity;
+        renderer.toneMappingExposure = cfg.exposure;
+        sunDisc.material.color.set(cfg.sunDisc);
+
+        updateSunAnchor(shadowFocus);
+
+        // Sync UI pickers
+        document.querySelectorAll('[data-tod]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.tod === todKey);
+        });
+      }
+
+      const _sunDir = new THREE.Vector3();
+      const _homeSunFocus = new THREE.Vector3(0, 0, -90);
+
+      function updateSunAnchor(center) {
+        const cfg = TIME_OF_DAY[saveData.tod] || TIME_OF_DAY.midday;
+        sunLight.position.set(
+          center.x + cfg.sunPos[0],
+          center.y + cfg.sunPos[1],
+          center.z + cfg.sunPos[2]
+        );
+        sunLight.target.position.copy(center);
+        sunLight.target.updateMatrixWorld();
+
+        // Place visible sun disc far away along sun vector
+        _sunDir.set(cfg.sunPos[0], cfg.sunPos[1], cfg.sunPos[2]).normalize();
+        sunDisc.position.copy(camera.position).addScaledVector(_sunDir, 880);
+        sunDisc.lookAt(camera.position);
+        skyDome.position.copy(camera.position);
+      }
+
+      // =========================================================================
+      // 5. DETERMINISTIC HOLE BUILDER (Exact Yardage + PS1 Low-Poly World)
+      // =========================================================================
+      let worldGroup = new THREE.Group();
+      scene.add(worldGroup);
+
+      let currentHoleData = null;
+
+      function buildHoleData(course, holeIdx) {
+        const par = course.pars[holeIdx];
+        const totalYards = course.yards[holeIdx];
+        const seed = hashStr(`${course.id}-h${holeIdx + 1}`);
+        const rand = mulberry32(seed);
+
+        // Deterministic bend for doglegs
+        let bendAngle = 0;
+        if (par >= 4 && totalYards >= 310) {
+          const dir = rand() > 0.5 ? 1 : -1;
+          const mag = par === 5 ? 0.28 + rand() * 0.28 : 0.16 + rand() * 0.25;
+          bendAngle = dir * mag;
+        }
+        const splitRatio = par === 3 ? 0.5 : 0.52 + rand() * 0.12;
+        const L1 = totalYards * splitRatio;
+        const L2 = totalYards - L1;
+
+        const tee = new THREE.Vector2(0, 0);
+        const bend = new THREE.Vector2(0, -L1);
+        const pin = new THREE.Vector2(
+          Math.sin(bendAngle) * L2,
+          bend.y - Math.cos(bendAngle) * L2
+        );
+
+        // Smooth spline points along Tee -> Bend -> Pin
+        const curve = new THREE.QuadraticBezierCurve(
+          new THREE.Vector2(tee.x, tee.y),
+          new THREE.Vector2(bend.x, bend.y),
+          new THREE.Vector2(pin.x, pin.y)
+        );
+        const centerline = [];
+        const steps = 36;
+        for (let i = 0; i <= steps; i++) {
+          centerline.push(curve.getPoint(i / steps));
+        }
+
+        // Elevation parameters
+        const slopeTrend = (rand() - 0.45) * 9.5; // overall tee-to-pin elevation delta (yd)
+        const hillPhase = rand() * Math.PI * 2;
+        const hillAmp = 1.6 + rand() * 2.4;
+        const greenSlopeX = (rand() - 0.5) * 0.075; // ~4% max slope for real break
+        const greenSlopeZ = (rand() - 0.5) * 0.065;
+
+        // Green & Tee dimensions
+        const teeRadius = 7.5;
+        const greenRadius = par === 3 ? 13.5 : 14.5;
+        const fairwayWidth = par === 3 ? 11 : par === 4 ? 17 : 19;
+
+        // Bunkers
+        const bunkers = [];
+        const greensideCount = 2 + Math.floor(rand() * 2);
+        for (let b = 0; b < greensideCount; b++) {
+          const ang = (b * 2.1 + rand() * 1.1) - 1.2;
+          const dist = greenRadius + 4.5 + rand() * 4;
+          bunkers.push({
+            x: pin.x + Math.cos(ang) * dist,
+            z: pin.y + Math.sin(ang) * dist,
+            rx: 5.5 + rand() * 3.5,
+            rz: 4.0 + rand() * 2.8,
+            rot: rand() * Math.PI,
+          });
+        }
+        if (par >= 4 && totalYards > 320) {
+          const fwT = 0.46 + rand() * 0.22;
+          const pt = curve.getPoint(fwT);
+          const side = rand() > 0.5 ? 1 : -1;
+          bunkers.push({
+            x: pt.x + side * (fairwayWidth * 0.85),
+            z: pt.y,
+            rx: 6.5 + rand() * 3,
+            rz: 9.0 + rand() * 4,
+            rot: bendAngle * 0.5,
+          });
+        }
+
+        // Water hazards (more frequent on Toledo CC / Detwiler)
+        const waters = [];
+        if (rand() < course.palette.waterBias) {
+          if (par === 3) {
+            const side = rand() > 0.5 ? 1 : -1;
+            waters.push({
+              x: pin.x + side * (greenRadius + 16),
+              z: pin.y + 18,
+              rx: 22 + rand() * 12,
+              rz: 26 + rand() * 12,
+            });
+          } else {
+            const wT = 0.42 + rand() * 0.34;
+            const pt = curve.getPoint(wT);
+            const side = rand() > 0.5 ? 1 : -1;
+            waters.push({
+              x: pt.x + side * (fairwayWidth + 20),
+              z: pt.y,
+              rx: 20 + rand() * 14,
+              rz: 34 + rand() * 20,
+            });
+          }
+        }
+
+        const waterLevel = -1.6;
+
+        function distToCenterline(x, z) {
+          let bestD2 = Infinity;
+          let bestT = 0;
+          for (let i = 0; i < centerline.length - 1; i++) {
+            const a = centerline[i];
+            const b = centerline[i + 1];
+            const dx = b.x - a.x;
+            const dz = b.y - a.y;
+            const len2 = dx * dx + dz * dz || 1;
+            const u = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.y) * dz) / len2));
+            const px = a.x + u * dx;
+            const pz = a.y + u * dz;
+            const d2 = (x - px) * (x - px) + (z - pz) * (z - pz);
+            if (d2 < bestD2) {
+              bestD2 = d2;
+              bestT = (i + u) / (centerline.length - 1);
+            }
+          }
+          return { dist: Math.sqrt(bestD2), t: bestT };
+        }
+
+        function isInBunker(x, z) {
+          for (const b of bunkers) {
+            const dx = x - b.x;
+            const dz = z - b.z;
+            const c = Math.cos(-b.rot);
+            const s = Math.sin(-b.rot);
+            const lx = dx * c - dz * s;
+            const lz = dx * s + dz * c;
+            const n = (lx * lx) / (b.rx * b.rx) + (lz * lz) / (b.rz * b.rz);
+            if (n <= 1.0) return 1 - n;
+          }
+          return 0;
+        }
+
+        function isInWater(x, z) {
+          for (const w of waters) {
+            const dx = x - w.x;
+            const dz = z - w.z;
+            const n = (dx * dx) / (w.rx * w.rx) + (dz * dz) / (w.rz * w.rz);
+            if (n <= 1.0) return 1 - n;
+          }
+          return 0;
+        }
+
+        function baseTerrainHeight(x, z) {
+          const progress = Math.max(-0.1, Math.min(1.15, -z / Math.max(120, totalYards)));
+          const trend = progress * slopeTrend;
+          const roll = Math.sin(x * 0.025 + hillPhase) * Math.cos(z * 0.022) * hillAmp;
+          const lateralMounds = Math.pow(Math.min(1, Math.abs(x - pin.x * progress) / 55), 1.7) * 3.5;
+          return trend + roll + lateralMounds * 0.35;
+        }
+
+        const pinBaseY = baseTerrainHeight(pin.x, pin.y) + 0.35;
+        const teeBaseY = baseTerrainHeight(0, 0) + 0.7;
+
+        function groundHeightAt(x, z) {
+          const dPin = Math.hypot(x - pin.x, z - pin.y);
+          if (dPin <= greenRadius + 2) {
+            const greenH = pinBaseY + (x - pin.x) * greenSlopeX + (z - pin.y) * greenSlopeZ;
+            if (dPin <= greenRadius) return greenH;
+            const blend = (dPin - greenRadius) / 2;
+            return THREE.MathUtils.lerp(greenH, baseTerrainHeight(x, z), blend);
+          }
+
+          const dTee = Math.hypot(x - tee.x, z - tee.y);
+          if (dTee <= teeRadius) {
+            return teeBaseY;
+          }
+
+          let h = baseTerrainHeight(x, z);
+
+          const bDepth = isInBunker(x, z);
+          if (bDepth > 0) {
+            h -= Math.min(0.85, bDepth * 1.45);
+          }
+
+          const wDepth = isInWater(x, z);
+          if (wDepth > 0) {
+            h = Math.min(h, waterLevel - 0.5 - wDepth * 1.2);
+          }
+
+          return h;
+        }
+
+        function getSurfaceAt(x, z) {
+          const dTee = Math.hypot(x - tee.x, z - tee.y);
+          if (dTee <= teeRadius - 1.5) return 'Tee';
+          const dPin = Math.hypot(x - pin.x, z - pin.y);
+          if (dPin <= greenRadius) return 'Green';
+          if (isInWater(x, z) > 0) return 'Water';
+          if (isInBunker(x, z) > 0) return 'Bunker';
+          const cl = distToCenterline(x, z);
+          if (par >= 4 && cl.dist <= fairwayWidth && cl.t > 0.08 && cl.t < 0.96) return 'Fairway';
+          if (cl.dist > 82) return 'OB';
+          return 'Rough';
+        }
+
+        return {
+          course,
+          holeIdx,
+          par,
+          totalYards,
+          seed,
+          rand,
+          tee,
+          bend,
+          pin,
+          bendAngle,
+          centerline,
+          curve,
+          teeRadius,
+          greenRadius,
+          fairwayWidth,
+          bunkers,
+          waters,
+          waterLevel,
+          greenSlopeX,
+          greenSlopeZ,
+          pinBaseY,
+          teeBaseY,
+          groundHeightAt,
+          getSurfaceAt,
+          distToCenterline,
+        };
+      }
+
+      // =========================================================================
+      // 6. 3D HOLE SCENE MESHES (PS1 Flat-Shaded Polygons + Composite Props)
+      // =========================================================================
+      let flagPennantMesh = null;
+      let holeCupPos = new THREE.Vector3();
+
+      function clearGroup(group) {
+        while (group.children.length) {
+          const obj = group.children.pop();
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+            else obj.material.dispose();
+          }
+        }
+      }
+
+      function buildCompositeTree(rand, palette, isPine) {
+        const g = new THREE.Group();
+        const trunkMat = new THREE.MeshStandardMaterial({
+          color: 0x5c3d24,
+          roughness: 0.92,
+          flatShading: true,
+        });
+        const leafColor = rand() > 0.5 ? palette.treeA : palette.treeB;
+        const leafMat = new THREE.MeshStandardMaterial({
+          color: leafColor,
+          roughness: 0.85,
+          flatShading: true,
+        });
+
+        const hScale = 0.85 + rand() * 0.55;
+        const trunkH = 3.2 * hScale;
+        const trunk = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.42, 0.72, trunkH, 5),
+          trunkMat
+        );
+        trunk.position.y = trunkH * 0.5;
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
+        g.add(trunk);
+
+        if (isPine) {
+          for (let tier = 0; tier < 3; tier++) {
+            const rad = (3.5 - tier * 0.8) * hScale;
+            const ch = (3.8 - tier * 0.4) * hScale;
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(rad, ch, 6), leafMat);
+            cone.position.y = trunkH + tier * 2.1 * hScale + 0.5;
+            cone.rotation.y = tier * 0.5;
+            cone.castShadow = true;
+            cone.receiveShadow = true;
+            g.add(cone);
+          }
+        } else {
+          // Chunky PS1 deciduous crown (3 clustered icosahedrons)
+          const mainCrown = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(3.2 * hScale, 0),
+            leafMat
+          );
+          mainCrown.position.y = trunkH + 2.3 * hScale;
+          mainCrown.castShadow = true;
+          mainCrown.receiveShadow = true;
+          g.add(mainCrown);
+
+          for (let c = 0; c < 2; c++) {
+            const sub = new THREE.Mesh(
+              new THREE.IcosahedronGeometry(2.1 * hScale, 0),
+              leafMat
+            );
+            const ang = c * 2.4 + rand();
+            sub.position.set(
+              Math.cos(ang) * 1.8 * hScale,
+              trunkH + 1.9 * hScale,
+              Math.sin(ang) * 1.8 * hScale
+            );
+            sub.castShadow = true;
+            sub.receiveShadow = true;
+            g.add(sub);
+          }
+        }
+        return g;
+      }
+
+      function renderHole3D(hole) {
+        clearGroup(worldGroup);
+        currentHoleData = hole;
+        const pal = hole.course.palette;
+
+        const minX = Math.min(-180, hole.pin.x - 180);
+        const maxX = Math.max(180, hole.pin.x + 180);
+        const minZ = hole.pin.y - 190;
+        const maxZ = 160;
+        const w = maxX - minX;
+        const d = maxZ - minZ;
+        const cx = (minX + maxX) * 0.5;
+        const cz = (minZ + maxZ) * 0.5;
+
+        // 1. Chunky Flat-Shaded Outer Terrain Mesh
+        const segX = 48;
+        const segZ = 72;
+        const terrainGeo = new THREE.PlaneGeometry(w, d, segX, segZ);
+        terrainGeo.rotateX(-Math.PI / 2);
+        const posAttr = terrainGeo.attributes.position;
+        for (let i = 0; i < posAttr.count; i++) {
+          const vx = posAttr.getX(i) + cx;
+          const vz = posAttr.getZ(i) + cz;
+          const vy = hole.groundHeightAt(vx, vz);
+          posAttr.setXYZ(i, vx, vy, vz);
+        }
+        terrainGeo.computeVertexNormals();
+        const terrainMat = new THREE.MeshStandardMaterial({
+          color: pal.rough,
+          roughness: 0.92,
+          metalness: 0.0,
+          flatShading: true,
+        });
+        const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+        terrainMesh.receiveShadow = true;
+        worldGroup.add(terrainMesh);
+
+        // 2. Fairway Ribbon (if Par 4/5) with PS1 mow stripes
+        if (hole.par >= 4) {
+          const fwSteps = 32;
+          const fwVerts = [];
+          const fwColors = [];
+          const fwIndices = [];
+          const cA = new THREE.Color(pal.fairwayA);
+          const cB = new THREE.Color(pal.fairwayB);
+
+          for (let i = 0; i <= fwSteps; i++) {
+            const t = i / fwSteps;
+            const pt = hole.curve.getPoint(t);
+            const tan = hole.curve.getTangent(t).normalize();
+            const nx = -tan.y;
+            const nz = tan.x;
+            // Taper at tee and before green
+            const taper = t < 0.12 ? 0.35 + (t / 0.12) * 0.65 : t > 0.9 ? 1.0 - (t - 0.9) * 4 : 1.0;
+            const halfW = hole.fairwayWidth * Math.max(0.35, taper);
+            const stripColor = i % 2 === 0 ? cA : cB;
+
+            for (let s = -2; s <= 2; s++) {
+              const offset = (s / 2) * halfW;
+              const px = pt.x + nx * offset;
+              const pz = pt.y + nz * offset;
+              const py = hole.groundHeightAt(px, pz) + 0.09;
+              fwVerts.push(px, py, pz);
+              fwColors.push(stripColor.r, stripColor.g, stripColor.b);
+            }
+          }
+          const rowStride = 5;
+          for (let i = 0; i < fwSteps; i++) {
+            for (let s = 0; s < rowStride - 1; s++) {
+              const a = i * rowStride + s;
+              const b = a + 1;
+              const c = (i + 1) * rowStride + s;
+              const dIdx = c + 1;
+              fwIndices.push(a, c, b, b, c, dIdx);
+            }
+          }
+          const fwGeo = new THREE.BufferGeometry();
+          fwGeo.setAttribute('position', new THREE.Float32BufferAttribute(fwVerts, 3));
+          fwGeo.setAttribute('color', new THREE.Float32BufferAttribute(fwColors, 3));
+          fwGeo.setIndex(fwIndices);
+          fwGeo.computeVertexNormals();
+          const fwMesh = new THREE.Mesh(
+            fwGeo,
+            new THREE.MeshStandardMaterial({
+              vertexColors: true,
+              roughness: 0.85,
+              flatShading: true,
+              polygonOffset: true,
+              polygonOffsetFactor: -1,
+              polygonOffsetUnits: -1,
+            })
+          );
+          fwMesh.receiveShadow = true;
+          worldGroup.add(fwMesh);
+        }
+
+        // 3. Tee Box + Tee Markers
+        const teeGeo = new THREE.CylinderGeometry(hole.teeRadius, hole.teeRadius + 1.2, 0.5, 8);
+        const teeMesh = new THREE.Mesh(
+          teeGeo,
+          new THREE.MeshStandardMaterial({ color: pal.fairwayA, roughness: 0.82, flatShading: true })
+        );
+        teeMesh.position.set(0, hole.teeBaseY - 0.15, 0);
+        teeMesh.receiveShadow = true;
+        worldGroup.add(teeMesh);
+
+        [-3.2, 3.2].forEach((tx) => {
+          const marker = new THREE.Mesh(
+            new THREE.SphereGeometry(0.32, 6, 5),
+            new THREE.MeshStandardMaterial({ color: 0xe2b84f, roughness: 0.4, metalness: 0.2, flatShading: true })
+          );
+          marker.position.set(tx, hole.teeBaseY + 0.28, 1.8);
+          marker.castShadow = true;
+          worldGroup.add(marker);
+        });
+
+        // 4. Putting Green Collar & Flat-Shaded Green with subtle mow stripes
+        const collarGeo = new THREE.CircleGeometry(hole.greenRadius + 2.2, 16);
+        collarGeo.rotateX(-Math.PI / 2);
+        const cPos = collarGeo.attributes.position;
+        for (let i = 0; i < cPos.count; i++) {
+          const gx = hole.pin.x + cPos.getX(i);
+          const gz = hole.pin.y + cPos.getZ(i);
+          cPos.setY(i, hole.pinBaseY + (gx - hole.pin.x) * hole.greenSlopeX + (gz - hole.pin.y) * hole.greenSlopeZ + 0.05);
+        }
+        collarGeo.computeVertexNormals();
+        const collarMesh = new THREE.Mesh(
+          collarGeo,
+          new THREE.MeshStandardMaterial({
+            color: pal.collar,
+            roughness: 0.85,
+            flatShading: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+          })
+        );
+        collarMesh.position.set(hole.pin.x, 0, hole.pin.y);
+        collarMesh.receiveShadow = true;
+        worldGroup.add(collarMesh);
+
+        const greenGeo = new THREE.CircleGeometry(hole.greenRadius, 18);
+        greenGeo.rotateX(-Math.PI / 2);
+        const gPos = greenGeo.attributes.position;
+        const gCols = [];
+        const gA = new THREE.Color(pal.greenA);
+        const gB = new THREE.Color(pal.greenB);
+        for (let i = 0; i < gPos.count; i++) {
+          const lx = gPos.getX(i);
+          const lz = gPos.getZ(i);
+          const gy = hole.pinBaseY + lx * hole.greenSlopeX + lz * hole.greenSlopeZ + 0.1;
+          gPos.setY(i, gy);
+          const col = Math.floor((lx + hole.greenRadius) / 3.5) % 2 === 0 ? gA : gB;
+          gCols.push(col.r, col.g, col.b);
+        }
+        greenGeo.setAttribute('color', new THREE.Float32BufferAttribute(gCols, 3));
+        greenGeo.computeVertexNormals();
+        const greenMesh = new THREE.Mesh(
+          greenGeo,
+          new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.78,
+            flatShading: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -2,
+          })
+        );
+        greenMesh.position.set(hole.pin.x, 0, hole.pin.y);
+        greenMesh.receiveShadow = true;
+        worldGroup.add(greenMesh);
+
+        // 5. Cup & Flagstick
+        const cupY = hole.groundHeightAt(hole.pin.x, hole.pin.y) + 0.11;
+        holeCupPos.set(hole.pin.x, cupY, hole.pin.y);
+
+        const cupMesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.24, 0.24, 0.08, 10),
+          new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 })
+        );
+        cupMesh.position.set(hole.pin.x, cupY, hole.pin.y);
+        worldGroup.add(cupMesh);
+
+        const flagGroup = new THREE.Group();
+        flagGroup.position.set(hole.pin.x, cupY, hole.pin.y);
+        const pole = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.055, 0.055, 4.4, 6),
+          new THREE.MeshStandardMaterial({ color: 0xf4f0d8, roughness: 0.4 })
+        );
+        pole.position.y = 2.2;
+        pole.castShadow = true;
+        flagGroup.add(pole);
+
+        const pennantGeo = new THREE.ConeGeometry(0.62, 1.4, 3);
+        pennantGeo.rotateZ(-Math.PI / 2);
+        flagPennantMesh = new THREE.Mesh(
+          pennantGeo,
+          new THREE.MeshStandardMaterial({ color: 0xe63939, roughness: 0.6, flatShading: true })
+        );
+        flagPennantMesh.position.set(0.65, 3.95, 0);
+        flagPennantMesh.castShadow = true;
+        flagGroup.add(flagPennantMesh);
+        worldGroup.add(flagGroup);
+
+        // 6. Bunkers
+        const sandMat = new THREE.MeshStandardMaterial({
+          color: pal.sand,
+          roughness: 0.95,
+          flatShading: true,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+        });
+        hole.bunkers.forEach((b) => {
+          const bGeo = new THREE.CircleGeometry(1, 12);
+          bGeo.rotateX(-Math.PI / 2);
+          bGeo.scale(b.rx, 1, b.rz);
+          bGeo.rotateY(b.rot);
+          const bPos = bGeo.attributes.position;
+          for (let i = 0; i < bPos.count; i++) {
+            const wx = b.x + bPos.getX(i);
+            const wz = b.z + bPos.getZ(i);
+            bPos.setY(i, hole.groundHeightAt(wx, wz) + 0.08);
+          }
+          bGeo.computeVertexNormals();
+          const bMesh = new THREE.Mesh(bGeo, sandMat);
+          bMesh.position.set(b.x, 0, b.z);
+          bMesh.receiveShadow = true;
+          worldGroup.add(bMesh);
+        });
+
+        // 7. Water Hazards
+        const waterMat = new THREE.MeshStandardMaterial({
+          color: pal.water,
+          roughness: 0.22,
+          metalness: 0.28,
+          flatShading: true,
+        });
+        hole.waters.forEach((wObj) => {
+          const wGeo = new THREE.CircleGeometry(1, 12);
+          wGeo.rotateX(-Math.PI / 2);
+          wGeo.scale(wObj.rx, 1, wObj.rz);
+          const wMesh = new THREE.Mesh(wGeo, waterMat);
+          wMesh.position.set(wObj.x, hole.waterLevel, wObj.z);
+          wMesh.receiveShadow = true;
+          worldGroup.add(wMesh);
+        });
+
+        // 8. 150-Yard Marker Stakes (on Par 4/5)
+        if (hole.par >= 4 && hole.totalYards > 220) {
+          const pt150 = hole.curve.getPoint(Math.max(0.25, 1 - 150 / hole.totalYards));
+          const tan = hole.curve.getTangent(0.6).normalize();
+          const stake = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.14, 0.14, 2.2, 5),
+            new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 })
+          );
+          const sx = pt150.x - tan.y * (hole.fairwayWidth + 2);
+          const sz = pt150.y + tan.x * (hole.fairwayWidth + 2);
+          stake.position.set(sx, hole.groundHeightAt(sx, sz) + 1.1, sz);
+          stake.castShadow = true;
+          worldGroup.add(stake);
+        }
+
+        // 9. Low-Poly Clubhouse / Gallery Pavilion near tee
+        const clubHouse = new THREE.Group();
+        const chBase = new THREE.Mesh(
+          new THREE.BoxGeometry(18, 6.5, 11),
+          new THREE.MeshStandardMaterial({ color: 0xeae4d3, roughness: 0.8, flatShading: true })
+        );
+        chBase.position.y = 3.25;
+        chBase.castShadow = true;
+        chBase.receiveShadow = true;
+        clubHouse.add(chBase);
+        const chRoof = new THREE.Mesh(
+          new THREE.ConeGeometry(13.5, 4.5, 4),
+          new THREE.MeshStandardMaterial({ color: 0x6b3228, roughness: 0.75, flatShading: true })
+        );
+        chRoof.rotation.y = Math.PI / 4;
+        chRoof.position.y = 8.6;
+        chRoof.castShadow = true;
+        clubHouse.add(chRoof);
+        const chX = -26;
+        const chZ = 22;
+        clubHouse.position.set(chX, hole.groundHeightAt(chX, chZ) - 0.3, chZ);
+        worldGroup.add(clubHouse);
+
+        // 10. Tree Groves Framing Corridor (Composite 3-4 part trees casting real shadows!)
+        const treeRand = mulberry32(hole.seed + 999);
+        const treeCount = 46;
+        let placed = 0;
+        let tries = 0;
+        while (placed < treeCount && tries < 220) {
+          tries++;
+          const t = treeRand();
+          const basePt = hole.curve.getPoint(t);
+          const side = treeRand() > 0.5 ? 1 : -1;
+          const dist = hole.fairwayWidth + 14 + treeRand() * 48;
+          const tx = basePt.x + side * dist + (treeRand() - 0.5) * 16;
+          const tz = basePt.y + (treeRand() - 0.5) * 20;
+
+          // Keep clear of green, tee, water, and clubhouse
+          if (Math.hypot(tx - hole.pin.x, tz - hole.pin.y) < hole.greenRadius + 10) continue;
+          if (Math.hypot(tx, tz) < 16) continue;
+          if (Math.hypot(tx - chX, tz - chZ) < 18) continue;
+          if (hole.getSurfaceAt(tx, tz) === 'Water') continue;
+
+          const tree = buildCompositeTree(treeRand, pal, treeRand() > 0.45);
+          tree.position.set(tx, hole.groundHeightAt(tx, tz) - 0.25, tz);
+          worldGroup.add(tree);
+          placed++;
+        }
+
+        // Update sun shadow bounds to cover hole
+        shadowFocus.set(hole.pin.x * 0.5, 0, hole.pin.y * 0.5);
+        updateSunAnchor(shadowFocus);
+      }
+
+      // =========================================================================
+      // 7. COMPOSITE PROCEDURAL GOLFER & BALL + AIM LINE
+      // =========================================================================
+      const golferGroup = new THREE.Group();
+      scene.add(golferGroup);
+
+      let golferParts = {};
+
+      function rebuildGolferMesh() {
+        clearGroup(golferGroup);
+        const gCfg = saveData.golfer;
+        const equipped = new Set(saveData.equippedItems);
+
+        const buildScale =
+          gCfg.build === 'biglou' ? { w: 1.38, h: 1.12 } :
+          gCfg.build === 'bigguy' ? { w: 1.24, h: 1.03 } :
+          { w: 1.0, h: 1.0 };
+
+        const shirtColor = equipped.has('sunday_hoodie')
+          ? '#cc2424'
+          : equipped.has('albatross_polo')
+          ? '#24804a'
+          : gCfg.shirt;
+
+        const pantsColor = equipped.has('bunker_slacks') ? '#d8cca8' : '#2c3338';
+        const shoeColor = equipped.has('golden_cleats') ? '#e8bd46' : '#f2f2f2';
+
+        const matShirt = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.72, flatShading: true });
+        const matSkin = new THREE.MeshStandardMaterial({ color: gCfg.skin, roughness: 0.78, flatShading: true });
+        const matPants = new THREE.MeshStandardMaterial({ color: pantsColor, roughness: 0.85, flatShading: true });
+        const matShoes = new THREE.MeshStandardMaterial({
+          color: shoeColor,
+          roughness: equipped.has('golden_cleats') ? 0.35 : 0.65,
+          metalness: equipped.has('golden_cleats') ? 0.65 : 0.1,
+          flatShading: true,
+        });
+        const matHat = new THREE.MeshStandardMaterial({
+          color: equipped.has('claret_crown') ? '#d4af37' : '#f5f5f2',
+          roughness: equipped.has('claret_crown') ? 0.3 : 0.75,
+          metalness: equipped.has('claret_crown') ? 0.7 : 0.05,
+          flatShading: true,
+        });
+
+        const rig = new THREE.Group();
+        rig.scale.set(buildScale.w, buildScale.h, buildScale.w);
+        golferGroup.add(rig);
+
+        // Legs + Shoes
+        [-0.22, 0.22].forEach((lx) => {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.95, 0.28), matPants);
+          leg.position.set(lx, 0.56, 0);
+          leg.castShadow = true;
+          rig.add(leg);
+
+          const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 0.42), matShoes);
+          shoe.position.set(lx, 0.08, 0.07);
+          shoe.castShadow = true;
+          rig.add(shoe);
+        });
+
+        // Torso Pivot (rotates during swing!)
+        const torsoPivot = new THREE.Group();
+        torsoPivot.position.set(0, 1.02, 0);
+        rig.add(torsoPivot);
+
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.84, 0.4), matShirt);
+        torso.position.y = 0.42;
+        torso.castShadow = true;
+        torsoPivot.add(torso);
+
+        // Head
+        const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.25, 0), matSkin);
+        head.position.y = 1.06;
+        head.castShadow = true;
+        torsoPivot.add(head);
+
+        // Headwear
+        if (equipped.has('claret_crown')) {
+          const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.18, 6), matHat);
+          crown.position.y = 1.28;
+          crown.castShadow = true;
+          torsoPivot.add(crown);
+        } else if (gCfg.hat === 'cap') {
+          const dome = new THREE.Mesh(new THREE.SphereGeometry(0.26, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.55), matHat);
+          dome.position.y = 1.12;
+          dome.castShadow = true;
+          torsoPivot.add(dome);
+          const brim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.24), matHat);
+          brim.position.set(0, 1.15, 0.22);
+          brim.castShadow = true;
+          torsoPivot.add(brim);
+        } else if (gCfg.hat === 'visor') {
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.08, 8, 1, true), matHat);
+          band.position.y = 1.16;
+          torsoPivot.add(band);
+          const brim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.24), matHat);
+          brim.position.set(0, 1.15, 0.22);
+          torsoPivot.add(brim);
+        }
+
+        // Arms + Club Pivot
+        const armPivot = new THREE.Group();
+        armPivot.position.set(0, 0.72, 0.16);
+        torsoPivot.add(armPivot);
+
+        [-0.3, 0.3].forEach((ax) => {
+          const arm = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.68, 0.18), matSkin);
+          arm.position.set(ax * 0.75, -0.3, 0.1);
+          arm.rotation.z = ax > 0 ? 0.35 : -0.35;
+          arm.rotation.x = -0.35;
+          arm.castShadow = true;
+          armPivot.add(arm);
+        });
+
+        const shaft = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.025, 0.025, 1.45, 5),
+          new THREE.MeshStandardMaterial({ color: 0xd0d6db, metalness: 0.8, roughness: 0.25 })
+        );
+        shaft.position.set(0, -0.95, 0.32);
+        shaft.rotation.x = 0.28;
+        shaft.castShadow = true;
+        armPivot.add(shaft);
+
+        const clubHead = new THREE.Mesh(
+          new THREE.BoxGeometry(0.24, 0.12, 0.16),
+          new THREE.MeshStandardMaterial({ color: 0x22262a, metalness: 0.85, roughness: 0.25 })
+        );
+        clubHead.position.set(0.08, -1.62, 0.5);
+        clubHead.castShadow = true;
+        armPivot.add(clubHead);
+
+        golferParts = { rig, torsoPivot, armPivot };
+      }
+
+      // Golf Ball + Trail + Aim Guide
+      const ballMesh = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.18, 1),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, flatShading: true })
+      );
+      ballMesh.castShadow = true;
+      scene.add(ballMesh);
+
+      const aimGroup = new THREE.Group();
+      scene.add(aimGroup);
+      const aimRing = new THREE.Mesh(
+        new THREE.RingGeometry(1.1, 1.55, 16),
+        new THREE.MeshBasicMaterial({ color: 0xffe478, side: THREE.DoubleSide, transparent: true, opacity: 0.88 })
+      );
+      aimRing.rotation.x = -Math.PI / 2;
+      aimGroup.add(aimRing);
+
+      const aimLineMat = new THREE.LineBasicMaterial({ color: 0xffe478, transparent: true, opacity: 0.72 });
+      const aimLineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -10)]);
+      const aimLine = new THREE.Line(aimLineGeo, aimLineMat);
+      aimGroup.add(aimLine);
+
+      // Putt Break Dots (on green)
+      const puttDots = [];
+      const puttDotGeo = new THREE.SphereGeometry(0.14, 6, 5);
+      const puttDotMat = new THREE.MeshBasicMaterial({ color: 0x7effa2 });
+      for (let i = 0; i < 12; i++) {
+        const dot = new THREE.Mesh(puttDotGeo, puttDotMat);
+        dot.visible = false;
+        scene.add(dot);
+        puttDots.push(dot);
+      }
+
+      // =========================================================================
+      // 8. GAME STATE, PHYSICS & TOURNAMENT LOGIC
+      // =========================================================================
+      const state = {
+        mode: 'home', // home | creator | play | flyover | roundEnd
+        course: COURSES[0],
+        holeIdx: 0,
+        stroke: 1,
+        holeScores: [],
+        rivalScores: [[], [], []],
+        ballPos: new THREE.Vector3(0, 1, 0),
+        lastDryPos: new THREE.Vector3(0, 1, 0),
+        ballVel: new THREE.Vector3(),
+        lie: 'Tee',
+        aimAngle: 0, // radians in world space (0 = -Z)
+        clubIdx: 0,
+        manualClub: false,
+        windSpeed: 6,
+        windAngle: 0.8, // radians
+        swingPhase: 'ready', // ready | power | accuracy | swinging | flying | holed
+        powerVal: 0,
+        powerDir: 1,
+        lockedPower: 0,
+        accVal: 0, // -1 .. +1
+        accDir: 1,
+        lockedAcc: 0,
+        swingAnimTime: 0,
+        shotHookAccel: 0,
+        shotWindAccel: new THREE.Vector2(),
+        flyoverT: 0,
+        camPos: new THREE.Vector3(0, 6, 12),
+        camLook: new THREE.Vector3(0, 1, -20),
+        homeAngle: 0,
+        toastTimer: 0,
+      };
+
+      function getBonusStats() {
+        const eq = new Set(saveData.equippedItems);
+        let yardBonus = saveData.skills.power * 3; // %
+        let accBonus = saveData.skills.accuracy * 0.02;
+        let shortBonus = saveData.skills.shortGame * 0.025;
+        let extraYards = 0;
+
+        if (eq.has('albatross_polo')) accBonus += 0.015;
+        if (eq.has('tour_spikes')) shortBonus += 0.03;
+        if (eq.has('major_glove')) extraYards += 3;
+        if (eq.has('tour_visor_pro')) accBonus += 0.02;
+        if (eq.has('bunker_slacks')) shortBonus += 0.06;
+        if (eq.has('sunday_hoodie')) extraYards += 4;
+        if (eq.has('golden_cleats')) { extraYards += 5; accBonus += 0.015; }
+        if (eq.has('claret_crown')) { extraYards += 5; accBonus += 0.03; }
+
+        return {
+          powerMult: 1 + yardBonus / 100,
+          extraYards,
+          sweetHalfWidth: Math.min(0.24, 0.095 + accBonus),
+          shortBonus,
+        };
+      }
+
+      function computeClubCarry(club) {
+        if (club.name === 'Putter') return club.maxYards;
+        const b = getBonusStats();
+        return Math.round(club.maxYards * b.powerMult + b.extraYards);
+      }
+
+      function autoPickClub() {
+        if (state.lie === 'Green') {
+          state.clubIdx = CLUBS.length - 1; // Putter
+          return;
+        }
+        const dist = Math.hypot(
+          currentHoleData.pin.x - state.ballPos.x,
+          currentHoleData.pin.y - state.ballPos.z
+        );
+        const lieMult = state.lie === 'Bunker' ? 0.7 : state.lie === 'Rough' ? 0.85 : 1.0;
+        const minAllowedIdx = state.lie === 'Tee' ? 0 : (state.lie === 'Bunker' || state.lie === 'Rough') ? 2 : 1;
+        let bestIdx = minAllowedIdx;
+        for (let i = minAllowedIdx; i < CLUBS.length - 1; i++) {
+          const eff = computeClubCarry(CLUBS[i]) * lieMult;
+          if (eff >= dist * 0.94) {
+            bestIdx = i;
+          }
+        }
+        state.clubIdx = bestIdx;
+      }
+
+      function getTargetAimForHole() {
+        const hole = currentHoleData;
+        const distToPin = Math.hypot(hole.pin.x - state.ballPos.x, hole.pin.y - state.ballPos.z);
+        if (state.stroke === 1 && hole.par >= 4 && distToPin > 260) {
+          // Aim toward fairway bend on tee shot
+          return Math.atan2(-(hole.bend.x - state.ballPos.x), -(hole.bend.y - state.ballPos.z));
+        }
+        return Math.atan2(-(hole.pin.x - state.ballPos.x), -(hole.pin.y - state.ballPos.z));
+      }
+
+      function setupHole(holeIdx) {
+        state.holeIdx = holeIdx;
+        state.stroke = 1;
+        state.swingPhase = 'ready';
+        state.manualClub = false;
+
+        const hole = buildHoleData(state.course, holeIdx);
+        renderHole3D(hole);
+
+        // Deterministic wind per hole
+        const wRand = mulberry32(hole.seed + 77);
+        state.windSpeed = Math.round(2 + wRand() * 13);
+        state.windAngle = wRand() * Math.PI * 2;
+
+        state.ballPos.set(0, hole.teeBaseY + 0.18, 0);
+        state.lastDryPos.copy(state.ballPos);
+        state.lie = 'Tee';
+        state.aimAngle = getTargetAimForHole();
+        autoPickClub();
+        placeGolferAtBall();
+
+        // Snap camera smoothly behind tee
+        const dirX = -Math.sin(state.aimAngle);
+        const dirZ = -Math.cos(state.aimAngle);
+        state.camPos.set(state.ballPos.x - dirX * 9, state.ballPos.y + 4.2, state.ballPos.z - dirZ * 9);
+        state.camLook.set(state.ballPos.x + dirX * 45, state.ballPos.y + 1, state.ballPos.z + dirZ * 45);
+        camera.position.copy(state.camPos);
+        camera.lookAt(state.camLook);
+
+        updateAimAndHUD();
+      }
+
+      function placeGolferAtBall() {
+        ballMesh.position.copy(state.ballPos);
+        const dirX = -Math.sin(state.aimAngle);
+        const dirZ = -Math.cos(state.aimAngle);
+        // Right-handed golfer stands to the left of the shot line
+        const leftX = -dirZ;
+        const leftZ = dirX;
+        const gx = state.ballPos.x + leftX * 1.15;
+        const gz = state.ballPos.z + leftZ * 1.15;
+        const gy = currentHoleData.groundHeightAt(gx, gz);
+        golferGroup.position.set(gx, gy, gz);
+        golferGroup.rotation.y = state.aimAngle + Math.PI / 2;
+        if (golferParts.torsoPivot) {
+          golferParts.torsoPivot.rotation.set(0, 0, 0);
+          golferParts.armPivot.rotation.set(0, 0, 0);
+        }
+        golferGroup.visible = true;
+      }
+
+      function showToast(text, duration = 2.2) {
+        const el = document.getElementById('shot-toast');
+        el.textContent = text;
+        el.classList.remove('hidden');
+        state.toastTimer = duration;
+      }
+
+      // =========================================================================
+      // 9. HUD & 2D MINIMAP UPDATES
+      // =========================================================================
+      function formatVsPar(diff) {
+        if (diff === 0) return 'E';
+        return diff > 0 ? `+${diff}` : `${diff}`;
+      }
+
+      function updateAimAndHUD() {
+        if (!currentHoleData || state.mode !== 'play') return;
+        const hole = currentHoleData;
+        const club = CLUBS[state.clubIdx];
+        const distYards = Math.hypot(hole.pin.x - state.ballPos.x, hole.pin.y - state.ballPos.z);
+        const distFeet = distYards * 3;
+        const isGreen = state.lie === 'Green';
+
+        // Hole header
+        document.getElementById('hud-hole').textContent = `HOLE ${state.holeIdx + 1}`;
+        document.getElementById('hud-hole-specs').textContent = `PAR ${hole.par} · ${hole.totalYards} YD`;
+        document.getElementById('hud-course-name').textContent = state.course.shortName;
+        document.getElementById('hud-stroke').textContent = `Stroke ${state.stroke}`;
+
+        const completedPar = state.holeScores.reduce((acc, _, i) => acc + state.course.pars[i], 0);
+        const completedStrokes = state.holeScores.reduce((a, b) => a + b, 0);
+        const diff = completedStrokes - completedPar;
+        document.getElementById('hud-total-score').textContent = `Score: ${formatVsPar(diff)} (${completedStrokes})`;
+
+        // Distance & Lie
+        document.getElementById('hud-dist').textContent = isGreen
+          ? `${distFeet.toFixed(1)} FT`
+          : `${Math.round(distYards)} YD`;
+        document.getElementById('hud-lie').textContent = state.lie;
+
+        // Elevation (Uphill / Downhill)
+        const ballY = state.ballPos.y - 0.18;
+        const pinY = hole.groundHeightAt(hole.pin.x, hole.pin.y);
+        const elevDiffFt = Math.round((pinY - ballY) * 3);
+        const elevEl = document.getElementById('hud-elev');
+        elevEl.className = 'tactical-val';
+        if (elevDiffFt >= 2) {
+          elevEl.textContent = `UPHILL +${elevDiffFt} ft`;
+          elevEl.classList.add('elev-up');
+        } else if (elevDiffFt <= -2) {
+          elevEl.textContent = `DOWNHILL ${elevDiffFt} ft`;
+          elevEl.classList.add('elev-down');
+        } else {
+          elevEl.textContent = 'LEVEL';
+          elevEl.classList.add('elev-flat');
+        }
+
+        // Wind relative to shot direction
+        document.getElementById('hud-wind-speed').textContent = `${state.windSpeed} mph`;
+        const relWindDeg = THREE.MathUtils.radToDeg(state.windAngle - state.aimAngle);
+        document.getElementById('hud-wind-arrow').style.transform = `rotate(${relWindDeg}deg)`;
+
+        // Club info
+        const maxCarry = computeClubCarry(club);
+        document.getElementById('hud-club-name').textContent = club.name;
+        document.getElementById('hud-club-dist').textContent =
+          club.name === 'Putter' ? 'Green Putt (90 ft)' : `${maxCarry} yd carry`;
+
+        // Sweet spot width
+        const bonus = getBonusStats();
+        document.getElementById('acc-zone').style.width = `${Math.round(bonus.sweetHalfWidth * 100)}%`;
+
+        // Putting Break Hint & Putt Target Tick
+        const breakEl = document.getElementById('hud-break-hint');
+        const tickEl = document.getElementById('power-target-tick');
+        if (isGreen) {
+          const dirX = -Math.sin(state.aimAngle);
+          const dirZ = -Math.cos(state.aimAngle);
+          const rightX = -dirZ;
+          const rightZ = dirX;
+          // Gravity pushes ball downslope: accel = -(slopeX, slopeZ) * g
+          const lateralSlope = -(hole.greenSlopeX * rightX + hole.greenSlopeZ * rightZ);
+          const forwardSlope = -(hole.greenSlopeX * dirX + hole.greenSlopeZ * dirZ);
+          const breakInches = Math.abs(lateralSlope * distFeet * 3.8).toFixed(1);
+          const breakDir = lateralSlope > 0.004 ? 'Left → Right' : lateralSlope < -0.004 ? 'Right → Left' : 'Straight';
+          const upDown = forwardSlope > 0.005 ? 'Downhill' : forwardSlope < -0.005 ? 'Uphill' : 'Flat';
+          breakEl.textContent = `Break: ${breakDir === 'Straight' ? 'Straight' : `${breakInches}" ${breakDir}`} · ${upDown}`;
+          breakEl.classList.remove('hidden');
+
+          // Show suggested putt power tick (max putt = 90 ft)
+          const slopeAdj = 1 - forwardSlope * 2.8;
+          const idealPct = THREE.MathUtils.clamp((distFeet / 90) * slopeAdj * 100, 6, 98);
+          tickEl.style.left = `${idealPct}%`;
+          tickEl.classList.remove('hidden');
+        } else {
+          breakEl.classList.add('hidden');
+          tickEl.classList.add('hidden');
+        }
+
+        // Update 3D aim line & target ring
+        const dirX = -Math.sin(state.aimAngle);
+        const dirZ = -Math.cos(state.aimAngle);
+        const lieMult = state.lie === 'Bunker' ? 0.7 : state.lie === 'Rough' ? 0.85 : 1.0;
+        const previewDist = isGreen ? Math.min(distYards + 1, 28) : maxCarry * lieMult;
+        const tx = state.ballPos.x + dirX * previewDist;
+        const tz = state.ballPos.z + dirZ * previewDist;
+        const ty = hole.groundHeightAt(tx, tz) + 0.22;
+
+        aimGroup.visible = state.swingPhase === 'ready' || state.swingPhase === 'power' || state.swingPhase === 'accuracy';
+        aimRing.position.set(tx, ty, tz);
+
+        const pts = [];
+        const arcPts = 14;
+        for (let i = 0; i <= arcPts; i++) {
+          const u = i / arcPts;
+          const ax = THREE.MathUtils.lerp(state.ballPos.x, tx, u);
+          const az = THREE.MathUtils.lerp(state.ballPos.z, tz, u);
+          const ay = hole.groundHeightAt(ax, az) + 0.25 + (isGreen ? 0 : Math.sin(u * Math.PI) * Math.min(18, previewDist * 0.11));
+          pts.push(new THREE.Vector3(ax, ay, az));
+        }
+        aimLine.geometry.dispose();
+        aimLine.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+
+        // Putt break dots along green line
+        puttDots.forEach((dot, idx) => {
+          if (!isGreen || !aimGroup.visible) {
+            dot.visible = false;
+            return;
+          }
+          const u = (idx + 1) / (puttDots.length + 1);
+          const px = THREE.MathUtils.lerp(state.ballPos.x, tx, u);
+          const pz = THREE.MathUtils.lerp(state.ballPos.z, tz, u);
+          const py = hole.groundHeightAt(px, pz) + 0.19;
+          dot.position.set(px, py, pz);
+          dot.visible = true;
+        });
+
+        drawMinimap();
+      }
+
+      function drawMinimap() {
+        const canvas = document.getElementById('minimap-canvas');
+        const ctx = canvas.getContext('2d');
+        const hole = currentHoleData;
+        const pal = hole.course.palette;
+        const W = canvas.width;
+        const H = canvas.height;
+
+        ctx.fillStyle = '#12291a';
+        ctx.fillRect(0, 0, W, H);
+
+        const pad = 26;
+        const minX = Math.min(0, hole.pin.x, hole.bend.x) - pad;
+        const maxX = Math.max(0, hole.pin.x, hole.bend.x) + pad;
+        const minZ = hole.pin.y - pad;
+        const maxZ = pad;
+        const scale = Math.min((W - 14) / (maxX - minX), (H - 14) / (maxZ - minZ));
+        const ox = (W - (maxX - minX) * scale) * 0.5;
+        const oy = (H - (maxZ - minZ) * scale) * 0.5;
+        const mapPt = (x, z) => [ox + (x - minX) * scale, oy + (z - minZ) * scale];
+
+        // Water
+        ctx.fillStyle = '#2579a8';
+        hole.waters.forEach((wObj) => {
+          const [wx, wy] = mapPt(wObj.x, wObj.z);
+          ctx.beginPath();
+          ctx.ellipse(wx, wy, wObj.rx * scale, wObj.rz * scale, 0, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // Fairway spline
+        if (hole.par >= 4) {
+          ctx.strokeStyle = '#' + pal.fairwayA.toString(16).padStart(6, '0');
+          ctx.lineWidth = Math.max(8, hole.fairwayWidth * 1.65 * scale);
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          hole.centerline.forEach((pt, idx) => {
+            const [mx, my] = mapPt(pt.x, pt.y);
+            if (idx === 0) ctx.moveTo(mx, my);
+            else ctx.lineTo(mx, my);
+          });
+          ctx.stroke();
+        }
+
+        // Bunkers
+        ctx.fillStyle = '#e6d29c';
+        hole.bunkers.forEach((b) => {
+          const [bx, by] = mapPt(b.x, b.z);
+          ctx.beginPath();
+          ctx.ellipse(bx, by, Math.max(2, b.rx * scale), Math.max(2, b.rz * scale), b.rot, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // Green
+        const [gx, gy] = mapPt(hole.pin.x, hole.pin.y);
+        ctx.fillStyle = '#53cc6b';
+        ctx.beginPath();
+        ctx.arc(gx, gy, Math.max(5, hole.greenRadius * scale), 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tee box
+        const [tx, ty] = mapPt(0, 0);
+        ctx.fillStyle = '#a3d9a5';
+        ctx.fillRect(tx - 3, ty - 2, 6, 4);
+
+        // Aim line
+        const [bx, by] = mapPt(state.ballPos.x, state.ballPos.z);
+        const dirX = -Math.sin(state.aimAngle);
+        const dirZ = -Math.cos(state.aimAngle);
+        const clubDist = computeClubCarry(CLUBS[state.clubIdx]);
+        const [ax, ay] = mapPt(state.ballPos.x + dirX * clubDist, state.ballPos.z + dirZ * clubDist);
+        ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(ax, ay);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Pin flag
+        ctx.fillStyle = '#ff4b4b';
+        ctx.beginPath();
+        ctx.arc(gx, gy, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ball
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(bx, by, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // =========================================================================
+      // 10. 3-CLICK SWING & BALL FLIGHT PHYSICS
+      // =========================================================================
+      function setSwingUIState() {
+        const btn = document.getElementById('btn-swing');
+        const label = document.getElementById('meter-phase-label');
+        btn.classList.remove('phase-power', 'phase-acc');
+
+        if (state.swingPhase === 'ready') {
+          btn.disabled = false;
+          btn.textContent = state.lie === 'Green' ? 'PUTT' : 'SWING';
+          label.textContent = 'TAP TO START POWER METER';
+          document.getElementById('power-fill').style.width = '0%';
+          document.getElementById('meter-power-readout').textContent = '0%';
+          document.getElementById('acc-needle').style.left = '50%';
+        } else if (state.swingPhase === 'power') {
+          btn.disabled = false;
+          btn.classList.add('phase-power');
+          btn.textContent = 'LOCK POWER';
+          label.textContent = 'TAP AGAIN TO SET POWER';
+        } else if (state.swingPhase === 'accuracy') {
+          btn.disabled = false;
+          btn.classList.add('phase-acc');
+          btn.textContent = 'HIT!';
+          label.textContent = 'TAP ON THE GREEN SWEET SPOT';
+        } else {
+          btn.disabled = true;
+          btn.textContent = state.swingPhase === 'holed' ? 'HOLED!' : 'IN FLIGHT';
+          label.textContent = 'WATCH THE SHOT';
+        }
+      }
+
+      function handleSwingTap() {
+        if (state.mode !== 'play') return;
+        getAudio();
+        if (state.swingPhase === 'ready') {
+          state.swingPhase = 'power';
+          state.powerVal = 0;
+          state.powerDir = 1;
+          state.accVal = 0;
+          state.accDir = 1;
+          setSwingUIState();
+        } else if (state.swingPhase === 'power') {
+          state.lockedPower = Math.max(0.08, state.powerVal);
+          state.swingPhase = 'accuracy';
+          state.accVal = -1.0;
+          state.accDir = 1;
+          setSwingUIState();
+        } else if (state.swingPhase === 'accuracy') {
+          state.lockedAcc = state.accVal;
+          launchSwingAnimation();
+        }
+      }
+
+      function launchSwingAnimation() {
+        state.swingPhase = 'swinging';
+        state.swingAnimTime = 0;
+        aimGroup.visible = false;
+        puttDots.forEach((d) => (d.visible = false));
+        setSwingUIState();
+      }
+
+      function executeBallStrike() {
+        const club = CLUBS[state.clubIdx];
+        const hole = currentHoleData;
+        const bonus = getBonusStats();
+        const isPutt = state.lie === 'Green' || club.name === 'Putter';
+
+        // Check accuracy error
+        const err = state.lockedAcc; // -1 .. +1
+        const absErr = Math.abs(err);
+        let qualityText = '';
+        let accPenalty = 1.0;
+        let curveSign = 0;
+
+        if (absErr <= bonus.sweetHalfWidth) {
+          qualityText = 'PERFECT STRIKE!';
+        } else {
+          const excess = (absErr - bonus.sweetHalfWidth) / (1 - bonus.sweetHalfWidth);
+          accPenalty = 1 - excess * 0.14;
+          curveSign = err < 0 ? -1 : 1; // negative = hook left, positive = slice right
+          qualityText = err < 0 ? (excess > 0.5 ? 'BIG HOOK!' : 'DRAW / HOOK') : (excess > 0.5 ? 'BIG SLICE!' : 'FADE / SLICE');
+        }
+        showToast(qualityText, 1.5);
+
+        const dirX = -Math.sin(state.aimAngle);
+        const dirZ = -Math.cos(state.aimAngle);
+        const rightX = -dirZ;
+        const rightZ = dirX;
+
+        if (isPutt) {
+          playStrikeSound('putt');
+          // Calibrate putt speed: 100% power rolls ~90 ft (30 yds) on flat green
+          // Rolling friction deceleration on green = 3.2 yd/s^2 -> v0 = sqrt(2 * a * dist)
+          const targetDistYds = 30 * state.lockedPower;
+          const v0 = Math.sqrt(2 * 3.15 * targetDistYds);
+          // Putt accuracy slightly deflects initial aim line
+          const puttAngErr = curveSign * absErr * 0.085;
+          const pAngle = state.aimAngle + puttAngErr;
+          state.ballVel.set(-Math.sin(pAngle) * v0, 0, -Math.cos(pAngle) * v0);
+          state.shotHookAccel = 0;
+          state.shotWindAccel.set(0, 0);
+        } else {
+          playStrikeSound(club.wood ? 'wood' : 'iron');
+          const lieMult =
+            state.lie === 'Bunker'
+              ? Math.min(0.86, 0.7 + bonus.shortBonus)
+              : state.lie === 'Rough'
+              ? Math.min(0.95, 0.85 + bonus.shortBonus * 0.6)
+              : 1.0;
+
+          const carryScale = club.name === 'Driver' ? 0.91 : club.name === '3-Wood' ? 0.93 : 0.96;
+          const nomCarry = computeClubCarry(club) * carryScale * state.lockedPower * lieMult * accPenalty;
+          const loft = THREE.MathUtils.degToRad(club.loftDeg);
+          const g = 10.7; // yd/s^2 tuned for crisp PS1 arc feel
+          // Carry R = v^2 * sin(2*loft) / g -> v = sqrt(R * g / sin(2*loft))
+          const sin2 = Math.max(0.28, Math.sin(2 * loft));
+          const speed = Math.sqrt((nomCarry * g) / sin2);
+
+          // Initial aim slightly pushed/pulled + curve during flight
+          const startPush = curveSign * absErr * 0.07;
+          const launchDirX = -Math.sin(state.aimAngle + startPush);
+          const launchDirZ = -Math.cos(state.aimAngle + startPush);
+
+          const vHoriz = speed * Math.cos(loft);
+          const vVert = speed * Math.sin(loft);
+          state.ballVel.set(launchDirX * vHoriz, vVert, launchDirZ * vHoriz);
+          state.firstBounce = true;
+
+          // Lateral hook/slice acceleration (yd/s^2)
+          state.shotHookAccel = curveSign * Math.max(0, absErr - bonus.sweetHalfWidth) * 14.5;
+
+          // Wind acceleration in world XZ
+          const windMag = state.windSpeed * 0.14;
+          state.shotWindAccel.set(-Math.sin(state.windAngle) * windMag, -Math.cos(state.windAngle) * windMag);
+        }
+
+        state.swingPhase = 'flying';
+        setSwingUIState();
+      }
+
+      function stepBallPhysics(dt) {
+        const hole = currentHoleData;
+        const g = 10.7;
+        const subSteps = 4;
+        const h = dt / subSteps;
+
+        for (let s = 0; s < subSteps; s++) {
+          const groundY = hole.groundHeightAt(state.ballPos.x, state.ballPos.z);
+          const surface = hole.getSurfaceAt(state.ballPos.x, state.ballPos.z);
+          const airborne = state.ballPos.y > groundY + 0.24 || state.ballVel.y > 0.35;
+
+          if (airborne) {
+            // Apply wind + hook/slice curve + gravity
+            const dirX = -Math.sin(state.aimAngle);
+            const dirZ = -Math.cos(state.aimAngle);
+            const rightX = -dirZ;
+            const rightZ = dirX;
+
+            state.ballVel.x += (state.shotWindAccel.x + rightX * state.shotHookAccel) * h;
+            state.ballVel.z += (state.shotWindAccel.y + rightZ * state.shotHookAccel) * h;
+            state.ballVel.y -= g * h;
+
+            state.ballPos.addScaledVector(state.ballVel, h);
+
+            const newGround = hole.groundHeightAt(state.ballPos.x, state.ballPos.z);
+            if (state.ballPos.y <= newGround + 0.18) {
+              state.ballPos.y = newGround + 0.18;
+              const hitSurface = hole.getSurfaceAt(state.ballPos.x, state.ballPos.z);
+              if (hitSurface === 'Water') {
+                handleHazardPenalty('WATER HAZARD! +1 Penalty');
+                return;
+              }
+              if (hitSurface === 'OB') {
+                handleHazardPenalty('OUT OF BOUNDS! +1 Penalty');
+                return;
+              }
+              // Bounce restitution & realistic turf check by surface
+              const bounceY = hitSurface === 'Bunker' ? 0.06 : hitSurface === 'Rough' ? 0.18 : hitSurface === 'Green' ? 0.28 : 0.34;
+              const firstKeep = hitSurface === 'Bunker' ? 0.08 : hitSurface === 'Rough' ? 0.18 : hitSurface === 'Green' ? 0.22 : 0.27;
+              const keepXZ = state.firstBounce ? firstKeep : 0.72;
+              state.firstBounce = false;
+              if (Math.abs(state.ballVel.y) > 1.4) {
+                state.ballVel.y = Math.abs(state.ballVel.y) * bounceY;
+                state.ballVel.x *= keepXZ;
+                state.ballVel.z *= keepXZ;
+              } else {
+                state.ballVel.y = 0;
+              }
+            }
+          } else {
+            // Rolling on ground
+            state.ballPos.y = groundY + 0.18;
+            if (surface === 'Water') {
+              handleHazardPenalty('WATER HAZARD! +1 Penalty');
+              return;
+            }
+            if (surface === 'OB') {
+              handleHazardPenalty('OUT OF BOUNDS! +1 Penalty');
+              return;
+            }
+
+            // Slope gravity force along ground gradient
+            const eps = 0.5;
+            const gx = (hole.groundHeightAt(state.ballPos.x + eps, state.ballPos.z) - hole.groundHeightAt(state.ballPos.x - eps, state.ballPos.z)) / (2 * eps);
+            const gz = (hole.groundHeightAt(state.ballPos.x, state.ballPos.z + eps) - hole.groundHeightAt(state.ballPos.x, state.ballPos.z - eps)) / (2 * eps);
+
+            const slopeStrength = surface === 'Green' ? 8.2 : 4.2;
+            state.ballVel.x -= gx * slopeStrength * h;
+            state.ballVel.z -= gz * slopeStrength * h;
+
+            const friction =
+              surface === 'Bunker' ? 24.0 :
+              surface === 'Rough' ? 14.0 :
+              surface === 'Fairway' ? 8.5 :
+              3.15; // Green
+
+            const spd = Math.hypot(state.ballVel.x, state.ballVel.z);
+            if (spd > 0.001) {
+              const drop = Math.min(spd, friction * h);
+              const factor = (spd - drop) / spd;
+              state.ballVel.x *= factor;
+              state.ballVel.z *= factor;
+            }
+            state.ballPos.x += state.ballVel.x * h;
+            state.ballPos.z += state.ballVel.z * h;
+            state.ballPos.y = hole.groundHeightAt(state.ballPos.x, state.ballPos.z) + 0.18;
+
+            // Cup capture check!
+            const distCup = Math.hypot(state.ballPos.x - hole.pin.x, state.ballPos.z - hole.pin.y);
+            const rollSpd = Math.hypot(state.ballVel.x, state.ballVel.z);
+            if (distCup < 0.42 && rollSpd < 7.2) {
+              completeHole();
+              return;
+            }
+          }
+        }
+
+        ballMesh.position.copy(state.ballPos);
+
+        // Stop condition
+        const groundY = hole.groundHeightAt(state.ballPos.x, state.ballPos.z);
+        const speedXZ = Math.hypot(state.ballVel.x, state.ballVel.z);
+        if (state.ballPos.y <= groundY + 0.22 && Math.abs(state.ballVel.y) < 0.25 && speedXZ < 0.18) {
+          finishShot();
+        }
+      }
+
+      function handleHazardPenalty(msg) {
+        playStrikeSound('splash');
+        showToast(msg, 2.4);
+        state.stroke += 2; // 1 stroke played + 1 penalty
+        state.ballPos.copy(state.lastDryPos);
+        state.ballVel.set(0, 0, 0);
+        state.lie = currentHoleData.getSurfaceAt(state.ballPos.x, state.ballPos.z);
+        state.swingPhase = 'ready';
+        state.manualClub = false;
+        state.aimAngle = getTargetAimForHole();
+        autoPickClub();
+        placeGolferAtBall();
+        setSwingUIState();
+        updateAimAndHUD();
+      }
+
+      function finishShot() {
+        state.ballVel.set(0, 0, 0);
+        const surface = currentHoleData.getSurfaceAt(state.ballPos.x, state.ballPos.z);
+        if (surface === 'Water' || surface === 'OB') {
+          handleHazardPenalty(surface === 'Water' ? 'WATER HAZARD! +1 Penalty' : 'OUT OF BOUNDS! +1 Penalty');
+          return;
+        }
+        state.lastDryPos.copy(state.ballPos);
+        state.lie = surface;
+        state.stroke += 1;
+        state.swingPhase = 'ready';
+        state.manualClub = false;
+        state.aimAngle = getTargetAimForHole();
+        autoPickClub();
+        placeGolferAtBall();
+        setSwingUIState();
+        updateAimAndHUD();
+      }
+
+      function completeHole() {
+        playStrikeSound('cup');
+        state.ballVel.set(0, 0, 0);
+        state.ballPos.set(currentHoleData.pin.x, currentHoleData.groundHeightAt(currentHoleData.pin.x, currentHoleData.pin.y) + 0.05, currentHoleData.pin.y);
+        ballMesh.position.copy(state.ballPos);
+        state.swingPhase = 'holed';
+        setSwingUIState();
+
+        const par = currentHoleData.par;
+        const score = state.stroke;
+        const diff = score - par;
+        let callout = `${score} (${formatVsPar(diff)})`;
+        if (score === 1) callout = 'HOLE IN ONE!!';
+        else if (diff <= -3) callout = 'ALBATROSS!';
+        else if (diff === -2) callout = 'EAGLE!';
+        else if (diff === -1) callout = 'BIRDIE!';
+        else if (diff === 0) callout = 'PAR';
+        else if (diff === 1) callout = 'BOGEY';
+        else if (diff === 2) callout = 'DOUBLE BOGEY';
+
+        showToast(callout, 2.5);
+        state.holeScores.push(score);
+
+        // Award round points per hole
+        const holePts = Math.max(1, 3 - diff);
+        saveData.roundPoints += holePts;
+        persistSave();
+
+        setTimeout(() => {
+          if (state.mode !== 'play') return;
+          if (state.holeIdx + 1 < state.course.holesCount) {
+            setupHole(state.holeIdx + 1);
+          } else {
+            finishRound();
+          }
+        }, 2100);
+      }
+
+      // =========================================================================
+      // 11. CPU RIVALS SIMULATION & END OF ROUND
+      // =========================================================================
+      function simulateRivalsForCourse(course) {
+        state.rivalScores = RIVALS_META.map((rival, rIdx) => {
+          const rand = mulberry32(hashStr(course.id + rival.name + Date.now().toString().slice(0, -4)));
+          return course.pars.map((par) => {
+            const roll = rand() + rival.skillBias;
+            if (roll < 0.04) return Math.max(2, par - 2);
+            if (roll < 0.25) return par - 1;
+            if (roll < 0.78) return par;
+            if (roll < 0.95) return par + 1;
+            return par + 2;
+          });
+        });
+      }
+
+      function finishRound() {
+        state.mode = 'roundEnd';
+        const totalPar = state.course.parTotal;
+        const playerTotal = state.holeScores.reduce((a, b) => a + b, 0);
+        const playerDiff = playerTotal - totalPar;
+
+        const standings = [
+          { name: saveData.golfer.name, isPlayer: true, total: playerTotal, diff: playerDiff },
+          ...RIVALS_META.map((r, i) => {
+            const t = state.rivalScores[i].reduce((a, b) => a + b, 0);
+            return { name: r.name, isPlayer: false, total: t, diff: t - totalPar };
+          }),
+        ].sort((a, b) => a.total - b.total);
+
+        const place = standings.findIndex((s) => s.isPlayer) + 1;
+        const basePurse = state.course.holesCount === 9 ? [2200, 1200, 750, 400] : [5000, 2800, 1600, 900];
+        const prize = basePurse[place - 1] + (playerDiff < 0 ? Math.abs(playerDiff) * 350 : 0);
+        const bonusPts = place === 1 ? 6 : place === 2 ? 4 : 2;
+
+        saveData.careerEarnings += prize;
+        saveData.roundPoints += bonusPts;
+        const prevBest = saveData.bestScores[state.course.id];
+        if (prevBest === undefined || playerTotal < prevBest) {
+          saveData.bestScores[state.course.id] = playerTotal;
+        }
+        persistSave();
+
+        document.getElementById('end-title').textContent = `${state.course.shortName} Complete`;
+        document.getElementById('end-subtitle').textContent = `Finished #${place} of 4 · Final Score ${playerTotal} (${formatVsPar(playerDiff)})`;
+
+        document.getElementById('end-stats').innerHTML = `
+          <div class="hud-box"><div class="field-label">Final Score</div><div class="dist-readout tabular">${playerTotal} (${formatVsPar(playerDiff)})</div></div>
+          <div class="hud-box"><div class="field-label">Finish</div><div class="dist-readout tabular" style="color:var(--gold)">#${place} Place</div></div>
+          <div class="hud-box"><div class="field-label">Prize Money</div><div class="dist-readout tabular" style="color:#7ee39b">+$${prize.toLocaleString()}</div></div>
+          <div class="hud-box"><div class="field-label">Career Earnings</div><div class="dist-readout tabular">$${saveData.careerEarnings.toLocaleString()}</div></div>
+        `;
+
+        document.getElementById('end-leaderboard').innerHTML = renderLeaderboardHTML(state.course.holesCount);
+        document.getElementById('end-scorecard').innerHTML = renderScorecardHTML();
+        document.getElementById('round-end-modal').classList.remove('hidden');
+      }
+
+      // =========================================================================
+      // 12. SCORECARD & LEADERBOARD HTML RENDERERS
+      // =========================================================================
+      function scoreCellClass(score, par) {
+        if (score == null) return '';
+        const d = score - par;
+        if (d <= -2) return 'score-eagle';
+        if (d === -1) return 'score-birdie';
+        if (d === 1) return 'score-bogey';
+        if (d >= 2) return 'score-double';
+        return '';
+      }
+
+      function renderNineTable(start, end, label) {
+        const pars = state.course.pars.slice(start, end);
+        const yards = state.course.yards.slice(start, end);
+        const scores = state.holeScores.slice(start, end);
+
+        let parSum = pars.reduce((a, b) => a + b, 0);
+        let yardSum = yards.reduce((a, b) => a + b, 0);
+        let scoreSum = scores.reduce((a, b) => a + b, 0);
+
+        let html = `<table class="score-table" style="margin-bottom:10px;"><thead><tr><th>Hole</th>`;
+        for (let i = start; i < end; i++) html += `<th>${i + 1}</th>`;
+        html += `<th>${label}</th></tr></thead><tbody>`;
+
+        html += `<tr><td>Yards</td>`;
+        yards.forEach((y) => (html += `<td>${y}</td>`));
+        html += `<td><strong>${yardSum}</strong></td></tr>`;
+
+        html += `<tr><td>Par</td>`;
+        pars.forEach((p) => (html += `<td>${p}</td>`));
+        html += `<td><strong>${parSum}</strong></td></tr>`;
+
+        html += `<tr><td><strong>${saveData.golfer.name}</strong></td>`;
+        let running = 0;
+        for (let i = 0; i < pars.length; i++) {
+          const sc = scores[i];
+          if (sc != null) running += sc - pars[i];
+          const cls = scoreCellClass(sc, pars[i]);
+          html += `<td class="${cls}">${sc != null ? sc : '–'}</td>`;
+        }
+        html += `<td><strong>${scores.length ? scoreSum : '–'}</strong></td></tr>`;
+
+        html += `<tr><td>+/- Par</td>`;
+        let runDiff = 0;
+        for (let i = 0; i < pars.length; i++) {
+          const sc = scores[i];
+          if (sc != null) {
+            const d = sc - pars[i];
+            runDiff += d;
+            html += `<td>${formatVsPar(d)}</td>`;
+          } else {
+            html += `<td>–</td>`;
+          }
+        }
+        html += `<td><strong>${scores.length ? formatVsPar(runDiff) : '–'}</strong></td></tr>`;
+
+        // Running total row
+        html += `<tr><td>Run Tot</td>`;
+        let runScore = 0;
+        for (let i = 0; i < pars.length; i++) {
+          const sc = scores[i];
+          if (sc != null) {
+            runScore += sc;
+            html += `<td>${runScore}</td>`;
+          } else {
+            html += `<td>–</td>`;
+          }
+        }
+        html += `<td><strong>${scores.length ? scoreSum : '–'}</strong></td></tr>`;
+
+        html += `</tbody></table>`;
+        return html;
+      }
+
+      function renderScorecardHTML() {
+        if (state.course.holesCount === 9) {
+          return renderNineTable(0, 9, 'TOT');
+        }
+        const totalYds = state.course.yardsTotal;
+        const totalPar = state.course.parTotal;
+        const playedCount = state.holeScores.length;
+        const totalScore = state.holeScores.reduce((a, b) => a + b, 0);
+        const playedPar = state.holeScores.reduce((acc, _, i) => acc + state.course.pars[i], 0);
+        return (
+          renderNineTable(0, 9, 'OUT') +
+          renderNineTable(9, 18, 'IN') +
+          `<div style="text-align:right;font-family:var(--font-mono);font-size:13px;color:var(--gold);">
+            COURSE TOTAL: PAR ${totalPar} · ${totalYds.toLocaleString()} YD · YOUR SCORE: ${playedCount ? `${totalScore} (${formatVsPar(totalScore - playedPar)})` : '–'}
+          </div>`
+        );
+      }
+
+      function renderLeaderboardHTML(thruOverride) {
+        const thru = thruOverride != null ? thruOverride : state.holeScores.length;
+        const parThru = state.course.pars.slice(0, thru).reduce((a, b) => a + b, 0);
+        const pTotal = state.holeScores.slice(0, thru).reduce((a, b) => a + b, 0);
+
+        const rows = [
+          { name: saveData.golfer.name, thru, total: pTotal, diff: pTotal - parThru, isPlayer: true },
+          ...RIVALS_META.map((r, i) => {
+            const rt = state.rivalScores[i].slice(0, thru).reduce((a, b) => a + b, 0);
+            return { name: r.name, thru, total: rt, diff: rt - parThru, isPlayer: false };
+          }),
+        ].sort((a, b) => a.diff - b.diff);
+
+        let html = `<table class="score-table"><thead><tr><th>Pos</th><th style="text-align:left">Player</th><th>Thru</th><th>Strokes</th><th>To Par</th></tr></thead><tbody>`;
+        rows.forEach((r, idx) => {
+          html += `<tr style="${r.isPlayer ? 'background:rgba(226,184,79,0.16);font-weight:700;' : ''}">
+            <td>${idx + 1}</td>
+            <td style="text-align:left">${r.name}${r.isPlayer ? ' (YOU)' : ''}</td>
+            <td>${r.thru}</td>
+            <td>${r.thru ? r.total : '–'}</td>
+            <td>${r.thru ? formatVsPar(r.diff) : 'E'}</td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+        return html;
+      }
+
+      // =========================================================================
+      // 13. UI BUILDERS & EVENT HANDLERS (Home, Creator, Pro Shop, Skills, HUD)
+      // =========================================================================
+      function renderHomeUI() {
+        document.getElementById('home-earnings').textContent = `$${saveData.careerEarnings.toLocaleString()}`;
+        document.getElementById('home-points').textContent = `${saveData.roundPoints} pts`;
+        document.getElementById('home-gear-count').textContent = `${saveData.ownedItems.length} / ${PRO_SHOP_ITEMS.length}`;
+
+        const grid = document.getElementById('course-grid');
+        grid.innerHTML = '';
+        COURSES.forEach((c) => {
+          const best = saveData.bestScores[c.id];
+          const bestText = best != null ? `Best: ${best} (${formatVsPar(best - c.parTotal)})` : 'Not played yet';
+          const holesTxt = c.holesCount === 9 ? '9 HOLES · ' : '18 HOLES · ';
+          const card = document.createElement('button');
+          card.className = 'course-card';
+          card.innerHTML = `
+            <div>
+              <div class="course-swatch" style="background:linear-gradient(90deg, #${c.palette.fairwayA.toString(16).padStart(6, '0')}, ${c.palette.accent});"></div>
+              <div class="course-title" style="margin-top:10px;">${c.name}</div>
+              <div class="course-meta tabular">${holesTxt}PAR ${c.parTotal} · ${c.yardsTotal.toLocaleString()} YD</div>
+              <div class="course-desc" style="margin-top:6px;">${c.location}</div>
+            </div>
+            <div class="course-footer">
+              <span class="tabular">${bestText}</span>
+              <span class="course-cta">Play Course →</span>
+            </div>
+          `;
+          card.addEventListener('click', () => openCreatorForCourse(c));
+          grid.appendChild(card);
+        });
+      }
+
+      function openCreatorForCourse(course) {
+        state.course = course;
+        state.mode = 'creator';
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('creator-screen').classList.remove('hidden');
+        document.getElementById('creator-course-label').textContent =
+          `${course.shortName.toUpperCase()} · PAR ${course.parTotal} · ${course.yardsTotal.toLocaleString()} YD`;
+
+        // Render Hole 1 of selected course behind creator!
+        const hole1 = buildHoleData(course, 0);
+        renderHole3D(hole1);
+        state.ballPos.set(0, hole1.teeBaseY + 0.18, 0);
+        state.aimAngle = 0;
+        rebuildGolferMesh();
+        placeGolferAtBall();
+        renderCreatorPickers();
+      }
+
+      function renderCreatorPickers() {
+        document.getElementById('golfer-name-input').value = saveData.golfer.name;
+
+        const shirtRow = document.getElementById('shirt-swatches');
+        shirtRow.innerHTML = '';
+        SHIRT_COLORS.forEach((hex) => {
+          const b = document.createElement('button');
+          b.className = 'swatch-btn' + (saveData.golfer.shirt === hex ? ' active' : '');
+          b.style.background = hex;
+          b.addEventListener('click', () => {
+            saveData.golfer.shirt = hex;
+            persistSave();
+            rebuildGolferMesh();
+            placeGolferAtBall();
+            renderCreatorPickers();
+          });
+          shirtRow.appendChild(b);
+        });
+
+        const skinRow = document.getElementById('skin-swatches');
+        skinRow.innerHTML = '';
+        SKIN_TONES.forEach((hex) => {
+          const b = document.createElement('button');
+          b.className = 'swatch-btn' + (saveData.golfer.skin === hex ? ' active' : '');
+          b.style.background = hex;
+          b.addEventListener('click', () => {
+            saveData.golfer.skin = hex;
+            persistSave();
+            rebuildGolferMesh();
+            placeGolferAtBall();
+            renderCreatorPickers();
+          });
+          skinRow.appendChild(b);
+        });
+
+        document.querySelectorAll('#hat-picker [data-hat]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.hat === saveData.golfer.hat);
+        });
+        document.querySelectorAll('#build-picker [data-build]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.build === saveData.golfer.build);
+        });
+      }
+
+      function openShopModal() {
+        document.getElementById('shop-earnings').textContent = `$${saveData.careerEarnings.toLocaleString()}`;
+        document.getElementById('shop-points').textContent = `${saveData.roundPoints} pts`;
+
+        // Skills list
+        const skillsList = document.getElementById('skills-list');
+        skillsList.innerHTML = '';
+        const skillDefs = [
+          { key: 'power', label: 'Power +1', desc: '+3% club carry distance per level' },
+          { key: 'accuracy', label: 'Accuracy +1', desc: 'Wider sweet spot & tighter dispersion' },
+          { key: 'shortGame', label: 'Short Game +1', desc: 'Better rough/sand recovery & putt feel' },
+        ];
+        skillDefs.forEach((sk) => {
+          const lvl = saveData.skills[sk.key];
+          const cost = 2 + lvl * 2;
+          const canBuy = saveData.roundPoints >= cost && lvl < 6;
+          const row = document.createElement('div');
+          row.className = 'skill-row';
+          row.innerHTML = `
+            <div>
+              <div style="font-weight:700;font-size:15px;color:#fff;">${sk.label} <span style="color:var(--gold);font-family:var(--font-mono);font-size:12px;">(Lv ${lvl}/6)</span></div>
+              <div style="font-size:12px;color:var(--text-muted);">${sk.desc}</div>
+            </div>
+            <button class="btn-primary" style="min-height:38px;padding:7px 14px;font-size:12px;" ${canBuy ? '' : 'disabled'}>
+              ${lvl >= 6 ? 'MAXED' : `Upgrade (${cost} pts)`}
+            </button>
+          `;
+          row.querySelector('button').addEventListener('click', () => {
+            if (saveData.roundPoints >= cost && saveData.skills[sk.key] < 6) {
+              saveData.roundPoints -= cost;
+              saveData.skills[sk.key] += 1;
+              persistSave();
+              openShopModal();
+              renderHomeUI();
+              updateAimAndHUD();
+            }
+          });
+          skillsList.appendChild(row);
+        });
+
+        // Pro Shop 8 items
+        const shopGrid = document.getElementById('shop-grid');
+        shopGrid.innerHTML = '';
+        PRO_SHOP_ITEMS.forEach((item) => {
+          const owned = saveData.ownedItems.includes(item.id);
+          const equipped = saveData.equippedItems.includes(item.id);
+          const canAfford = saveData.careerEarnings >= item.price;
+          const card = document.createElement('div');
+          card.className = 'shop-item' + (owned ? ' owned' : '');
+          card.innerHTML = `
+            <div>
+              <div class="shop-name">${item.name}</div>
+              <div class="shop-perk" style="margin-top:4px;">${item.perk}</div>
+            </div>
+            <button class="${owned ? (equipped ? 'btn-secondary' : 'btn-primary') : 'btn-primary'}" style="min-height:38px;padding:7px 12px;font-size:12px;" ${!owned && !canAfford ? 'disabled' : ''}>
+              ${owned ? (equipped ? 'Equipped (Tap to Remove)' : 'Equip Gear') : `Buy $${item.price.toLocaleString()}`}
+            </button>
+          `;
+          card.querySelector('button').addEventListener('click', () => {
+            if (!owned) {
+              if (saveData.careerEarnings >= item.price) {
+                saveData.careerEarnings -= item.price;
+                saveData.ownedItems.push(item.id);
+                saveData.equippedItems.push(item.id);
+                persistSave();
+                rebuildGolferMesh();
+                if (state.mode === 'play' || state.mode === 'creator') placeGolferAtBall();
+                openShopModal();
+                renderHomeUI();
+                updateAimAndHUD();
+              }
+            } else {
+              if (equipped) {
+                saveData.equippedItems = saveData.equippedItems.filter((x) => x !== item.id);
+              } else {
+                saveData.equippedItems.push(item.id);
+              }
+              persistSave();
+              rebuildGolferMesh();
+              if (state.mode === 'play' || state.mode === 'creator') placeGolferAtBall();
+              openShopModal();
+              updateAimAndHUD();
+            }
+          });
+          shopGrid.appendChild(card);
+        });
+
+        document.getElementById('shop-modal').classList.remove('hidden');
+      }
+
+      // Wire events
+      document.querySelectorAll('[data-tod]').forEach((btn) => {
+        btn.addEventListener('click', () => applyTimeOfDay(btn.dataset.tod));
+      });
+
+      document.getElementById('btn-open-shop').addEventListener('click', openShopModal);
+      document.getElementById('btn-open-skills').addEventListener('click', openShopModal);
+      document.getElementById('btn-hud-shop').addEventListener('click', openShopModal);
+      document.getElementById('btn-close-shop').addEventListener('click', () => {
+        document.getElementById('shop-modal').classList.add('hidden');
+      });
+
+      document.getElementById('golfer-name-input').addEventListener('input', (e) => {
+        saveData.golfer.name = e.target.value.trim() || 'Golfer';
+        persistSave();
+      });
+
+      document.querySelectorAll('#hat-picker [data-hat]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          saveData.golfer.hat = btn.dataset.hat;
+          persistSave();
+          rebuildGolferMesh();
+          placeGolferAtBall();
+          renderCreatorPickers();
+        });
+      });
+
+      document.querySelectorAll('#build-picker [data-build]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          saveData.golfer.build = btn.dataset.build;
+          persistSave();
+          rebuildGolferMesh();
+          placeGolferAtBall();
+          renderCreatorPickers();
+        });
+      });
+
+      document.getElementById('btn-creator-back').addEventListener('click', () => {
+        state.mode = 'home';
+        document.getElementById('creator-screen').classList.add('hidden');
+        document.getElementById('home-screen').classList.remove('hidden');
+      });
+
+      document.getElementById('btn-tee-off').addEventListener('click', () => {
+        saveData.golfer.name = document.getElementById('golfer-name-input').value.trim() || 'T. Glass';
+        persistSave();
+        document.getElementById('creator-screen').classList.add('hidden');
+        document.getElementById('game-hud').classList.remove('hidden');
+        state.mode = 'play';
+        state.holeScores = [];
+        simulateRivalsForCourse(state.course);
+        rebuildGolferMesh();
+        setupHole(0);
+        setSwingUIState();
+      });
+
+      document.getElementById('btn-quit').addEventListener('click', () => {
+        state.mode = 'home';
+        document.getElementById('game-hud').classList.add('hidden');
+        document.getElementById('home-screen').classList.remove('hidden');
+        renderHomeUI();
+      });
+
+      document.getElementById('btn-flyover').addEventListener('click', () => {
+        if (state.mode === 'play' && state.swingPhase === 'ready') {
+          state.mode = 'flyover';
+          state.flyoverT = 0;
+          document.getElementById('btn-flyover').classList.add('active');
+          document.getElementById('swing-dock').classList.add('hidden');
+          showToast('HOLE FLYOVER', 2.0);
+        } else if (state.mode === 'flyover') {
+          state.mode = 'play';
+          document.getElementById('btn-flyover').classList.remove('active');
+          document.getElementById('swing-dock').classList.remove('hidden');
+        }
+      });
+
+      document.getElementById('btn-scorecard').addEventListener('click', () => {
+        document.getElementById('sc-title').textContent = `${state.course.name} — Scorecard`;
+        document.getElementById('sc-subtitle').textContent = `Par ${state.course.parTotal} · ${state.course.yardsTotal.toLocaleString()} yd · ${state.course.location}`;
+        document.getElementById('sc-tables').innerHTML = renderScorecardHTML();
+        document.getElementById('sc-leaderboard').innerHTML = renderLeaderboardHTML();
+        document.getElementById('scorecard-modal').classList.remove('hidden');
+      });
+
+      document.getElementById('btn-close-scorecard').addEventListener('click', () => {
+        document.getElementById('scorecard-modal').classList.add('hidden');
+      });
+
+      document.getElementById('btn-play-again').addEventListener('click', () => {
+        document.getElementById('round-end-modal').classList.add('hidden');
+        state.mode = 'play';
+        state.holeScores = [];
+        simulateRivalsForCourse(state.course);
+        setupHole(0);
+        setSwingUIState();
+      });
+
+      document.getElementById('btn-end-courses').addEventListener('click', () => {
+        document.getElementById('round-end-modal').classList.add('hidden');
+        document.getElementById('game-hud').classList.add('hidden');
+        state.mode = 'home';
+        document.getElementById('home-screen').classList.remove('hidden');
+        renderHomeUI();
+      });
+
+      // Aim & Club controls
+      function adjustAim(delta) {
+        if (state.mode !== 'play' || state.swingPhase !== 'ready') return;
+        state.aimAngle += delta;
+        placeGolferAtBall();
+        updateAimAndHUD();
+      }
+      document.getElementById('btn-aim-left').addEventListener('click', () => adjustAim(0.055));
+      document.getElementById('btn-aim-right').addEventListener('click', () => adjustAim(-0.055));
+
+      document.getElementById('btn-club-prev').addEventListener('click', () => {
+        if (state.mode !== 'play' || state.swingPhase !== 'ready') return;
+        if (state.clubIdx < CLUBS.length - 1) {
+          state.clubIdx++;
+          state.manualClub = true;
+          updateAimAndHUD();
+        }
+      });
+      document.getElementById('btn-club-next').addEventListener('click', () => {
+        if (state.mode !== 'play' || state.swingPhase !== 'ready') return;
+        if (state.clubIdx > 0) {
+          state.clubIdx--;
+          state.manualClub = true;
+          updateAimAndHUD();
+        }
+      });
+
+      // Swing tap (pointerdown for zero-latency mobile & desktop)
+      document.getElementById('btn-swing').addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        handleSwingTap();
+      });
+
+      // Drag on 3D viewport to aim
+      let dragStartX = null;
+      viewportEl.addEventListener('pointerdown', (e) => {
+        if (state.mode === 'play' && state.swingPhase === 'ready') {
+          dragStartX = e.clientX;
+        }
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (dragStartX !== null && state.mode === 'play' && state.swingPhase === 'ready') {
+          const dx = e.clientX - dragStartX;
+          dragStartX = e.clientX;
+          adjustAim(-dx * 0.0045);
+        }
+      });
+      window.addEventListener('pointerup', () => { dragStartX = null; });
+
+      window.addEventListener('keydown', (e) => {
+        if (state.mode !== 'play') return;
+        if (e.code === 'Space') {
+          e.preventDefault();
+          handleSwingTap();
+        } else if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+          adjustAim(0.045);
+        } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+          adjustAim(-0.045);
+        }
+      });
+
+      // =========================================================================
+      // 14. MAIN ANIMATION LOOP & CAMERA CHOREOGRAPHY
+      // =========================================================================
+      const clock = new THREE.Clock();
+      const _vTargetPos = new THREE.Vector3();
+      const _vTargetLook = new THREE.Vector3();
+
+      function initDefaultScene() {
+        applyTimeOfDay(saveData.tod);
+        const homeHole = buildHoleData(COURSES[0], 0);
+        renderHole3D(homeHole);
+        rebuildGolferMesh();
+        state.ballPos.set(0, homeHole.teeBaseY + 0.18, 0);
+        placeGolferAtBall();
+        aimGroup.visible = false;
+        renderHomeUI();
+      }
+
+      initDefaultScene();
+
+      let frameId = 0;
+      function afterDraw(cb) {
+        const gl = renderer.getContext();
+        const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        gl.flush();
+        const poll = () => {
+          const status = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
+          if (status === gl.UNSIGNALED) {
+            frameId = window.setTimeout(poll, 5);
+          } else {
+            gl.deleteSync(sync);
+            frameId = window.setTimeout(cb, 80);
+          }
+        };
+        frameId = window.setTimeout(poll, 5);
+      }
+
+      const _vFlightOffset = new THREE.Vector3();
+      renderer.domElement.addEventListener('webglcontextlost', (e) => e.preventDefault());
+
+      function tick() {
+        const dt = Math.min(0.05, clock.getDelta());
+        const elapsed = clock.getElapsedTime();
+
+        // Flag pennant flutter
+        if (flagPennantMesh) {
+          flagPennantMesh.rotation.y = Math.sin(elapsed * 4.5) * 0.16;
+        }
+
+        // Toast countdown
+        if (state.toastTimer > 0) {
+          state.toastTimer -= dt;
+          if (state.toastTimer <= 0) {
+            document.getElementById('shot-toast').classList.add('hidden');
+          }
+        }
+
+        if (state.mode === 'home') {
+          state.homeAngle += dt * 0.14;
+          const r = 54;
+          camera.position.set(
+            Math.sin(state.homeAngle) * r,
+            22 + Math.sin(state.homeAngle * 0.6) * 3,
+            -70 + Math.cos(state.homeAngle) * r
+          );
+          camera.lookAt(0, 2, -105);
+        } else if (state.mode === 'creator') {
+          // Close-up orbital camera on golfer on 1st tee
+          const ang = elapsed * 0.45;
+          camera.position.set(
+            golferGroup.position.x + Math.sin(ang) * 4.2,
+            golferGroup.position.y + 2.1,
+            golferGroup.position.z + Math.cos(ang) * 4.2
+          );
+          camera.lookAt(golferGroup.position.x, golferGroup.position.y + 1.15, golferGroup.position.z);
+        } else if (state.mode === 'flyover') {
+          state.flyoverT += dt * 0.16;
+          if (state.flyoverT >= 1.0) {
+            state.mode = 'play';
+            document.getElementById('btn-flyover').classList.remove('active');
+            document.getElementById('swing-dock').classList.remove('hidden');
+          } else {
+            const pt = currentHoleData.curve.getPoint(state.flyoverT);
+            const lookT = Math.min(1, state.flyoverT + 0.15);
+            const lookPt = currentHoleData.curve.getPoint(lookT);
+            const h = currentHoleData.groundHeightAt(pt.x, pt.y) + 26 - state.flyoverT * 12;
+            const lh = currentHoleData.groundHeightAt(lookPt.x, lookPt.y) + 1;
+            camera.position.set(pt.x, h, pt.y + 18);
+            camera.lookAt(lookPt.x, lh, lookPt.y);
+          }
+        } else if (state.mode === 'play') {
+          // Swing meter updates
+          if (state.swingPhase === 'power') {
+            state.powerVal += state.powerDir * dt * 1.18;
+            if (state.powerVal >= 1.04) { state.powerVal = 1.04; state.powerDir = -1; }
+            if (state.powerVal <= 0.04) { state.powerVal = 0.04; state.powerDir = 1; }
+            const pct = Math.min(100, Math.round(state.powerVal * 100));
+            document.getElementById('power-fill').style.width = `${pct}%`;
+            document.getElementById('meter-power-readout').textContent = `${pct}%`;
+            if (golferParts.torsoPivot) {
+              golferParts.torsoPivot.rotation.y = -state.powerVal * 0.9;
+              golferParts.armPivot.rotation.z = -state.powerVal * 1.45;
+            }
+          } else if (state.swingPhase === 'accuracy') {
+            state.accVal += state.accDir * dt * 2.35;
+            if (state.accVal >= 1) { state.accVal = 1; state.accDir = -1; }
+            if (state.accVal <= -1) { state.accVal = -1; state.accDir = 1; }
+            const leftPct = 50 + state.accVal * 47;
+            document.getElementById('acc-needle').style.left = `${leftPct}%`;
+          } else if (state.swingPhase === 'swinging') {
+            state.swingAnimTime += dt;
+            const t = Math.min(1, state.swingAnimTime / 0.24);
+            if (golferParts.torsoPivot) {
+              golferParts.torsoPivot.rotation.y = THREE.MathUtils.lerp(-state.lockedPower * 0.9, 0.85, t);
+              golferParts.armPivot.rotation.z = THREE.MathUtils.lerp(-state.lockedPower * 1.45, 1.35, t);
+            }
+            if (t >= 0.45 && state.ballVel.lengthSq() === 0 && state.swingPhase === 'swinging') {
+              executeBallStrike();
+            }
+          } else if (state.swingPhase === 'flying') {
+            stepBallPhysics(dt);
+          }
+
+          // Camera tracking
+          const dirX = -Math.sin(state.aimAngle);
+          const dirZ = -Math.cos(state.aimAngle);
+          if (state.swingPhase === 'flying') {
+            const camBack = state.lie === 'Green' ? 5.5 : 10.5;
+            const camUp = state.lie === 'Green' ? 3.4 : 4.8;
+            _vTargetPos.set(
+              state.ballPos.x - dirX * camBack,
+              Math.max(state.ballPos.y + camUp, currentHoleData.groundHeightAt(state.ballPos.x, state.ballPos.z) + camUp),
+              state.ballPos.z - dirZ * camBack
+            );
+            _vFlightOffset.set(dirX * 8, 0.5, dirZ * 8);
+            _vTargetLook.copy(state.ballPos).add(_vFlightOffset);
+            state.camPos.lerp(_vTargetPos, 1 - Math.exp(-5.5 * dt));
+            state.camLook.lerp(_vTargetLook, 1 - Math.exp(-7.5 * dt));
+          } else {
+            const behind = state.lie === 'Green' ? 4.8 : 8.8;
+            const above = state.lie === 'Green' ? 2.6 : 4.1;
+            _vTargetPos.set(state.ballPos.x - dirX * behind, state.ballPos.y + above, state.ballPos.z - dirZ * behind);
+            _vTargetLook.set(state.ballPos.x + dirX * 26, state.ballPos.y + 0.6, state.ballPos.z + dirZ * 26);
+            state.camPos.lerp(_vTargetPos, 1 - Math.exp(-6 * dt));
+            state.camLook.lerp(_vTargetLook, 1 - Math.exp(-6 * dt));
+          }
+          camera.position.copy(state.camPos);
+          camera.lookAt(state.camLook);
+        }
+
+        skyDome.position.copy(camera.position);
+        updateSunAnchor(state.mode === 'home' ? _homeSunFocus : shadowFocus);
+        renderer.render(scene, camera);
+
+        if (isSoftwareGl) afterDraw(tick);
+        else frameId = requestAnimationFrame(tick);
+      }
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      tick();
+    </script>
+  </body>
+</html>

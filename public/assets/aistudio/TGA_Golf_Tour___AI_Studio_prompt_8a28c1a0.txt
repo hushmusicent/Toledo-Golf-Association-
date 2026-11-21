@@ -1,0 +1,79 @@
+PASTE THIS INTO GOOGLE AI STUDIO — Build mode (aistudio.google.com).
+Start building now, do not ask questions first.
+
+Build "TGA Golf Tour — Toledo Golf Association" as ONE single HTML file
+with embedded CSS + JavaScript. Use Three.js (importmap, unpkg three@0.160.0).
+PS1 / Tiger Woods style: low-poly 3D, chunky polygons, flat-shaded greens.
+Home screen must show "BUILD v2026.11.21.1" at the top.
+
+COURSES — 7 real Toledo-area courses. Use these EXACT par and yardage
+numbers on the course cards, the hole HUD, and the scorecard. Do not change
+any number. (Inverness: USGA prints 6,916 total, the holes add to 6,917 —
+use the hole numbers below and total 6,917.)
+
+1. Inverness Club, Toledo — Par 71, 6,917 yd
+   Par:   4,4,3,4,3,4,4,5,4, 4,4,3,5,4,4,4,4,4
+   Yards: 391,435,201,432,166,429,434,558,367, 383,373,195,536,419,440,404,421,333
+   Donald Ross, hosted US Opens, 4601 Dorr St.
+2. Toledo Country Club — Par 70, 6,433 yd (Gold tees, Maumee River)
+   Par:   4,4,3,4,4,5,3,4,4, 5,4,3,4,3,4,4,3,5
+   Yards: 322,417,192,408,382,484,154,421,440, 593,380,241,375,149,394,381,206,494
+3. Highland Meadows, Sylvania — Par 71, 6,379 yd
+   Par:   4,4,4,4,3,4,4,5,5, 4,3,4,4,4,3,5,3,4
+   Yards: 369,408,391,332,183,390,402,516,500, 338,155,380,374,409,154,582,130,366
+4. Ottawa Park, Toledo — Par 71, 5,079 yd
+   Par:   5,4,4,5,3,4,3,4,4, 4,4,3,4,3,5,4,4,4
+   Yards: 502,266,281,473,98,292,124,316,274, 293,242,103,233,96,512,345,304,325
+5. Detwiler Park, Toledo — Par 71, 6,620 yd (Arthur Hills, Maumee Bay)
+   Par:   4,3,4,4,5,3,4,3,5, 5,4,3,4,5,4,3,4,4
+   Yards: 371,190,375,410,526,180,425,154,502, 506,381,223,420,515,408,198,384,452
+6. Bedford Hills, Temperance — Par 71, 6,124 yd (Buckeye/Wolverine)
+   Par:   4,4,4,3,4,4,3,4,5, 4,5,4,3,4,4,4,3,5
+   Yards: 335,354,342,150,391,342,172,350,481, 321,573,397,191,357,391,375,182,420
+7. Collins Park, Toledo — 9 HOLES ONLY, Par 36, 2,980 yd
+   Par:   4,4,4,4,5,3,4,4,4
+   Yards: 351,276,264,355,496,157,269,392,420
+
+Note on the 3D layout: par/yardage above are the real published scorecard
+numbers. Build each hole's 3D fairway to that exact yardage (dogleg bend,
+bunkers, water, trees placed to fit the yardage, same bend every time for
+the same hole). Do not claim GPS-surveyed coordinates.
+
+3D, HUES AND SHADOWS — make this obvious:
+- Real shadows: shadowMap on, directional sun light with shadows, trees,
+  golfer, flag and ball cast shadows, ground/fairway/green receive them.
+- Time-of-day picker on the home screen and in game: Morning (warm low sun,
+  long shadows, peach sky), Midday (white sun, short shadows, blue sky),
+  Golden Hour (amber sun, very long shadows, orange sky), Sunset
+  (pink/purple sky). Changing it re-lights the scene live.
+- Each course gets its own green hue (Inverness deep green + gold,
+  Toledo CC river green/blue, Highland Meadows mid-green, Ottawa Park
+  park green, Detwiler bay green, Bedford Hills farmland green,
+  Collins Park muni green). Sky gradient + fog for depth.
+
+GAMEPLAY — Tiger Woods style:
+- Course select (all 7, with par/yardage/location), then create your golfer:
+  name, shirt colour, skin tone, cap/visor/none, Standard / Big Guy / Big Lou.
+- 3 CPU rivals with simulated scores: A. Fairchild, B. Thornton, C. Whitfield.
+- 3-click swing: tap SWING to start the power bar, tap again to lock power,
+  tap a third time on the moving accuracy needle to hit. A bad accuracy tap
+  hooks or slices the ball. Big tap buttons for phone.
+- HUD: wind speed + direction arrow, distance to pin, lie
+  (Fairway / Rough / Bunker / Green), UPHILL / DOWNHILL indicator.
+- Clubs: Driver 260, 3-Wood 230, 5-Iron 180, 7-Iron 155, 9-Iron 130,
+  PW 110, SW 90, Putter. Auto-pick by distance, manual override.
+  Rough = 0.85 distance, bunker = 0.7. Wind pushes the ball.
+- Ball flight: animated arc + roll, camera follows the ball, then back
+  behind the ball. Water / out of bounds = +1 penalty drop.
+- Putting on the green: putt mode, distance in feet, power meter, break hint.
+- Scorecard (hole, par, yards, score, vs par, running total), leaderboard
+  vs the 3 CPU rivals, prize money + career earnings saved in localStorage,
+  PLAY AGAIN after the round.
+- Top-down 2D hole map in the HUD showing tee, fairway bend, green,
+  bunkers, water and the ball. Hole flyover button (camera tee to green).
+- Small Pro Shop (8 items: Albatross Polo, Tour Proven Spikes, Major Maker
+  Glove, Tour Visor Pro, Bunker Buster Slacks, Sunday Red Hoodie,
+  Golden Cleats, Claret Crown) bought with career earnings, plus
+  Power / Accuracy / Short Game +1 skills bought with round points.
+
+Build it now as a complete playable game in one HTML file.
