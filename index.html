@@ -2452,8 +2452,11 @@
         const pantsColor = equipped.has('bunker_slacks') ? '#d8cca8' : '#2c3338';
         const shoeColor = equipped.has('golden_cleats') ? '#e8bd46' : '#f2f2f2';
 
+        // Smooth skin (no flat shading) + faceted clothes keeps the PS1 look
+        // but makes the face and hands read as a person, not a box.
         const matShirt = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.72, flatShading: true });
-        const matSkin = new THREE.MeshStandardMaterial({ color: gCfg.skin, roughness: 0.78, flatShading: true });
+        const matShirtDark = new THREE.MeshStandardMaterial({ color: new THREE.Color(shirtColor).multiplyScalar(0.62), roughness: 0.75, flatShading: true });
+        const matSkin = new THREE.MeshStandardMaterial({ color: gCfg.skin, roughness: 0.62, flatShading: false });
         const matPants = new THREE.MeshStandardMaterial({ color: pantsColor, roughness: 0.85, flatShading: true });
         const matShoes = new THREE.MeshStandardMaterial({
           color: shoeColor,
@@ -2461,28 +2464,38 @@
           metalness: equipped.has('golden_cleats') ? 0.65 : 0.1,
           flatShading: true,
         });
+        const matSole = new THREE.MeshStandardMaterial({ color: 0x1c1e20, roughness: 0.9, flatShading: true });
         const matHat = new THREE.MeshStandardMaterial({
           color: equipped.has('claret_crown') ? '#d4af37' : '#f5f5f2',
           roughness: equipped.has('claret_crown') ? 0.3 : 0.75,
           metalness: equipped.has('claret_crown') ? 0.7 : 0.05,
           flatShading: true,
         });
+        const matHair = new THREE.MeshStandardMaterial({ color: 0x2a1d12, roughness: 0.9, flatShading: false });
+        const matDark = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.6, flatShading: false });
+        const matGlove = new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.55, flatShading: false });
+
+        const M = (geo, mat, x, y, z) => {
+          const m = new THREE.Mesh(geo, mat);
+          m.position.set(x, y, z);
+          m.castShadow = true;
+          return m;
+        };
 
         const rig = new THREE.Group();
         rig.scale.set(buildScale.w, buildScale.h, buildScale.w);
         golferGroup.add(rig);
 
-        // Legs + Shoes
-        [-0.22, 0.22].forEach((lx) => {
-          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.95, 0.28), matPants);
-          leg.position.set(lx, 0.56, 0);
-          leg.castShadow = true;
+        // Legs — tapered round legs in a slight golf stance, not boxes
+        [-0.20, 0.20].forEach((lx) => {
+          const leg = M(new THREE.CylinderGeometry(0.13, 0.15, 0.95, 10), matPants, lx, 0.56, 0);
+          leg.rotation.z = lx > 0 ? -0.05 : 0.05;
           rig.add(leg);
-
-          const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 0.42), matShoes);
-          shoe.position.set(lx, 0.08, 0.07);
-          shoe.castShadow = true;
+          // Rounded shoe with a dark sole
+          const shoe = M(new THREE.SphereGeometry(0.15, 12, 8), matShoes, lx, 0.10, 0.09);
+          shoe.scale.set(1, 0.62, 1.65);
           rig.add(shoe);
+          rig.add(M(new THREE.BoxGeometry(0.24, 0.05, 0.44), matSole, lx, 0.035, 0.09));
         });
 
         // Torso Pivot (rotates during swing!)
@@ -2490,70 +2503,99 @@
         torsoPivot.position.set(0, 1.02, 0);
         rig.add(torsoPivot);
 
-        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.84, 0.4), matShirt);
-        torso.position.y = 0.42;
-        torso.castShadow = true;
-        torsoPivot.add(torso);
+        // Neck
+        torsoPivot.add(M(new THREE.CylinderGeometry(0.09, 0.11, 0.14, 10), matSkin, 0, 0.92, 0));
+        // Belt
+        torsoPivot.add(M(new THREE.CylinderGeometry(0.29, 0.31, 0.09, 10), matSole, 0, 0.03, 0));
+        // Torso — tapered (wide shoulders, narrower waist), not a box
+        torsoPivot.add(M(new THREE.CylinderGeometry(0.34, 0.27, 0.80, 12), matShirt, 0, 0.44, 0));
+        // Rounded shoulders
+        const shoulders = M(new THREE.SphereGeometry(0.34, 12, 8), matShirt, 0, 0.80, 0);
+        shoulders.scale.set(1.05, 0.5, 0.72);
+        torsoPivot.add(shoulders);
+        // Collar + shirt buttons down the front
+        torsoPivot.add(M(new THREE.CylinderGeometry(0.13, 0.17, 0.10, 10), matShirtDark, 0, 0.86, 0));
+        torsoPivot.add(M(new THREE.SphereGeometry(0.022, 8, 6), matDark, 0, 0.62, 0.30));
+        torsoPivot.add(M(new THREE.SphereGeometry(0.022, 8, 6), matDark, 0, 0.44, 0.29));
+        torsoPivot.add(M(new THREE.SphereGeometry(0.022, 8, 6), matDark, 0, 0.26, 0.27));
 
-        // Head
-        const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.25, 0), matSkin);
-        head.position.y = 1.06;
-        head.castShadow = true;
-        torsoPivot.add(head);
+        // Head — smooth sphere, with a face
+        torsoPivot.add(M(new THREE.SphereGeometry(0.24, 18, 14), matSkin, 0, 1.10, 0));
+        // Ears
+        torsoPivot.add(M(new THREE.SphereGeometry(0.05, 8, 6), matSkin, -0.235, 1.10, 0));
+        torsoPivot.add(M(new THREE.SphereGeometry(0.05, 8, 6), matSkin, 0.235, 1.10, 0));
+        // Eyes + brows + nose — this is what makes him read as a person
+        torsoPivot.add(M(new THREE.SphereGeometry(0.032, 8, 6), matDark, -0.085, 1.14, 0.215));
+        torsoPivot.add(M(new THREE.SphereGeometry(0.032, 8, 6), matDark, 0.085, 1.14, 0.215));
+        const browL = M(new THREE.BoxGeometry(0.09, 0.018, 0.02), matHair, -0.085, 1.20, 0.22);
+        const browR = M(new THREE.BoxGeometry(0.09, 0.018, 0.02), matHair, 0.085, 1.20, 0.22);
+        torsoPivot.add(browL, browR);
+        const nose = M(new THREE.ConeGeometry(0.032, 0.09, 8), matSkin, 0, 1.06, 0.235);
+        nose.rotation.x = Math.PI / 2;
+        torsoPivot.add(nose);
 
         // Headwear
         if (equipped.has('claret_crown')) {
-          const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.18, 6), matHat);
-          crown.position.y = 1.28;
-          crown.castShadow = true;
-          torsoPivot.add(crown);
+          torsoPivot.add(M(new THREE.CylinderGeometry(0.24, 0.20, 0.18, 8), matHat, 0, 1.32, 0));
+          [-0.20, -0.07, 0.07, 0.20].forEach((cx) => {
+            torsoPivot.add(M(new THREE.SphereGeometry(0.035, 8, 6), matHat, cx, 1.43, 0));
+          });
         } else if (gCfg.hat === 'cap') {
-          const dome = new THREE.Mesh(new THREE.SphereGeometry(0.26, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.55), matHat);
-          dome.position.y = 1.12;
-          dome.castShadow = true;
+          const dome = M(new THREE.SphereGeometry(0.26, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), matHat, 0, 1.13, 0);
           torsoPivot.add(dome);
-          const brim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.24), matHat);
-          brim.position.set(0, 1.15, 0.22);
-          brim.castShadow = true;
+          const brim = M(new THREE.CylinderGeometry(0.19, 0.19, 0.035, 14), matHat, 0, 1.15, 0.22);
+          brim.scale.set(1.35, 1, 1.15);
           torsoPivot.add(brim);
         } else if (gCfg.hat === 'visor') {
-          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.08, 8, 1, true), matHat);
-          band.position.y = 1.16;
+          const band = M(new THREE.CylinderGeometry(0.255, 0.255, 0.09, 14, 1, true), matHat, 0, 1.17, 0);
           torsoPivot.add(band);
-          const brim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.24), matHat);
-          brim.position.set(0, 1.15, 0.22);
+          const brim = M(new THREE.CylinderGeometry(0.19, 0.19, 0.035, 14), matHat, 0, 1.15, 0.22);
+          brim.scale.set(1.35, 1, 1.15);
           torsoPivot.add(brim);
+        } else {
+          // No hat: hair on the back/top of the head
+          const hair = M(new THREE.SphereGeometry(0.25, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 1.12, -0.02);
+          torsoPivot.add(hair);
         }
 
-        // Arms + Club Pivot
+        // Arms + Club Pivot — two-part arms (shirt sleeve + skin forearm)
+        // with hands meeting at the grip, so the swing reads properly.
         const armPivot = new THREE.Group();
         armPivot.position.set(0, 0.72, 0.16);
         torsoPivot.add(armPivot);
 
-        [-0.3, 0.3].forEach((ax) => {
-          const arm = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.68, 0.18), matSkin);
-          arm.position.set(ax * 0.75, -0.3, 0.1);
-          arm.rotation.z = ax > 0 ? 0.35 : -0.35;
-          arm.rotation.x = -0.35;
-          arm.castShadow = true;
-          armPivot.add(arm);
+        [-1, 1].forEach((side) => {
+          const sleeve = M(new THREE.CylinderGeometry(0.095, 0.085, 0.42, 10), matShirt, side * 0.30, -0.16, 0.16);
+          sleeve.rotation.z = side * 0.45;
+          sleeve.rotation.x = -0.45;
+          armPivot.add(sleeve);
+          const forearm = M(new THREE.CylinderGeometry(0.07, 0.06, 0.36, 10), matSkin, side * 0.17, -0.42, 0.30);
+          forearm.rotation.z = side * 0.28;
+          forearm.rotation.x = -0.55;
+          armPivot.add(forearm);
+          // Left hand wears the glove when the Major Maker Glove is equipped
+          const handMat = (side < 0 && equipped.has('major_glove')) ? matGlove : matSkin;
+          armPivot.add(M(new THREE.SphereGeometry(0.09, 10, 8), handMat, side * 0.09, -0.58, 0.40));
         });
 
-        const shaft = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.025, 0.025, 1.45, 5),
-          new THREE.MeshStandardMaterial({ color: 0xd0d6db, metalness: 0.8, roughness: 0.25 })
+        // Club — grip, steel shaft, wedge head
+        const grip = M(new THREE.CylinderGeometry(0.035, 0.035, 0.32, 8), matSole, 0, -0.72, 0.38);
+        grip.rotation.x = 0.28;
+        armPivot.add(grip);
+        const shaft = M(
+          new THREE.CylinderGeometry(0.022, 0.022, 1.35, 6),
+          new THREE.MeshStandardMaterial({ color: 0xd0d6db, metalness: 0.8, roughness: 0.25 }),
+          0, -1.30, 0.48
         );
-        shaft.position.set(0, -0.95, 0.32);
         shaft.rotation.x = 0.28;
-        shaft.castShadow = true;
         armPivot.add(shaft);
-
-        const clubHead = new THREE.Mesh(
-          new THREE.BoxGeometry(0.24, 0.12, 0.16),
-          new THREE.MeshStandardMaterial({ color: 0x22262a, metalness: 0.85, roughness: 0.25 })
+        const clubHead = M(
+          new THREE.BoxGeometry(0.26, 0.10, 0.18),
+          new THREE.MeshStandardMaterial({ color: 0x22262a, metalness: 0.85, roughness: 0.25 }),
+          0.06, -1.92, 0.64
         );
-        clubHead.position.set(0.08, -1.62, 0.5);
-        clubHead.castShadow = true;
+        clubHead.rotation.z = -0.15;
+        clubHead.rotation.x = 0.28;
         armPivot.add(clubHead);
 
         golferParts = { rig, torsoPivot, armPivot };
@@ -2693,6 +2735,8 @@
         state.holeIdx = holeIdx;
         state.stroke = 1;
         state.swingPhase = 'ready';
+        state.ballVel.set(0, 0, 0);
+        state.flightTime = 0;
         state.manualClub = false;
 
         const hole = buildHoleData(state.course, holeIdx);
@@ -3034,6 +3078,7 @@
       function launchSwingAnimation() {
         state.swingPhase = 'swinging';
         state.swingAnimTime = 0;
+        state.ballVel.set(0, 0, 0);
         aimGroup.visible = false;
         puttDots.forEach((d) => (d.visible = false));
         setSwingUIState();
@@ -3115,6 +3160,7 @@
         }
 
         state.swingPhase = 'flying';
+        state.flightTime = 0;
         setSwingUIState();
       }
 
@@ -3170,6 +3216,9 @@
           } else {
             // Rolling on ground
             state.ballPos.y = groundY + 0.18;
+            state.ballVel.y = 0; // ROOT-CAUSE FIX: a bounce can leave vel.y stuck
+            // between 0.25 and 0.35, which is neither "airborne" (>0.35) nor
+            // "stopped" (<0.25), so finishShot() could never fire. Rolling = no vertical speed.
             if (surface === 'Water') {
               handleHazardPenalty('WATER HAZARD! +1 Penalty');
               return;
@@ -3870,7 +3919,7 @@
       renderer.domElement.addEventListener('webglcontextlost', (e) => e.preventDefault());
 
       function tick() {
-        const dt = Math.min(0.05, clock.getDelta());
+        const dt = Math.min(0.25, clock.getDelta()); // was 0.05: slow devices starved game time
         const elapsed = clock.getElapsedTime();
 
         // Flag pennant flutter
@@ -3945,11 +3994,18 @@
               golferParts.torsoPivot.rotation.y = THREE.MathUtils.lerp(-state.lockedPower * 0.9, 0.85, t);
               golferParts.armPivot.rotation.z = THREE.MathUtils.lerp(-state.lockedPower * 1.45, 1.35, t);
             }
-            if (t >= 0.45 && state.ballVel.lengthSq() === 0 && state.swingPhase === 'swinging') {
+            if (t >= 0.45 && state.swingPhase === 'swinging') {
               executeBallStrike();
             }
+            if (state.swingAnimTime > 0.6 && state.swingPhase === 'swinging') {
+              executeBallStrike(); // hard fallback: 'swinging' must never stick
+            }
           } else if (state.swingPhase === 'flying') {
+            state.flightTime = (state.flightTime || 0) + dt;
             stepBallPhysics(dt);
+            if (state.flightTime > 12 && state.swingPhase === 'flying') {
+              finishShot(); // watchdog: no real shot flies this long
+            }
           }
 
           // Camera tracking
