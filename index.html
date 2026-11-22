@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.6</div>
+        <div class="build-tag">BUILD v2026.11.21.7</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.6</div>
+        <div class="build-tag">BUILD v2026.11.21.7</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1087,7 +1087,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.6</div>
+        <div class="build-tag">BUILD v2026.11.21.7</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1104,7 +1104,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.6</div>
+          <div class="build-tag">BUILD v2026.11.21.7</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -1159,6 +1159,11 @@
         </div>
 
         <div class="field-group">
+          <span class="field-label">Pants Colour</span>
+          <div class="swatch-row" id="pants-swatches"></div>
+        </div>
+
+        <div class="field-group">
           <span class="field-label">Skin Tone</span>
           <div class="swatch-row" id="skin-swatches"></div>
         </div>
@@ -1169,6 +1174,22 @@
             <button class="seg-btn active" data-hat="cap">Cap</button>
             <button class="seg-btn" data-hat="visor">Visor</button>
             <button class="seg-btn" data-hat="none">None</button>
+          </div>
+        </div>
+
+        <div class="field-group" id="hat-color-group">
+          <span class="field-label">Hat Colour</span>
+          <div class="swatch-row" id="hat-color-swatches"></div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Hairstyle</span>
+          <div class="seg-row" id="hair-picker">
+            <button class="seg-btn active" data-hair="short">Short</button>
+            <button class="seg-btn" data-hair="afro">Afro</button>
+            <button class="seg-btn" data-hair="dreads">Dreads</button>
+            <button class="seg-btn" data-hair="long">Long</button>
+            <button class="seg-btn" data-hair="bald">Bald</button>
           </div>
         </div>
 
@@ -2605,6 +2626,15 @@
         '#f2f4f0', '#23282d', '#733899', '#e06e26',
       ];
       const SKIN_TONES = ['#f7d3b5', '#e4b48c', '#c78c60', '#9c643f', '#6e4228', '#4a2a19'];
+      const HAT_COLORS = [
+        '#c8102e', '#23282d', '#f2f4f0', '#205ba8',
+        '#1f7a44', '#e2b84f', '#733899', '#e06e26',
+      ];
+      const PANTS_COLORS = [
+        '#2c3338', '#17191c', '#d8cca8', '#f2f4f0',
+        '#205ba8', '#5a3a28', '#6b7280', '#1f7a44',
+      ];
+      const HAIRSTYLES = ['short', 'afro', 'dreads', 'long', 'bald'];
 
       // =========================================================================
       // 2. SAVE STATE (localStorage)
@@ -2647,6 +2677,9 @@
             shirt: SHIRT_COLORS[5],
             skin: SKIN_TONES[3],
             hat: 'cap',
+            hatColor: '#c8102e',
+            pants: '#2c3338',
+            hair: 'short',
             build: 'standard',
           },
         };
@@ -2675,6 +2708,9 @@
                 shirt: parsed.golfer?.shirt || SHIRT_COLORS[5],
                 skin: parsed.golfer?.skin || SKIN_TONES[3],
                 hat: parsed.golfer?.hat || 'cap',
+                hatColor: parsed.golfer?.hatColor || '#c8102e',
+                pants: parsed.golfer?.pants || '#2c3338',
+                hair: parsed.golfer?.hair || 'short',
                 build: parsed.golfer?.build || 'standard',
               },
             };
@@ -2720,7 +2756,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.6
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.7
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -2785,6 +2821,9 @@
             shirt: parsed.golfer?.shirt || SHIRT_COLORS[5],
             skin: parsed.golfer?.skin || SKIN_TONES[3],
             hat: parsed.golfer?.hat || 'cap',
+            hatColor: parsed.golfer?.hatColor || '#c8102e',
+            pants: parsed.golfer?.pants || '#2c3338',
+            hair: parsed.golfer?.hair || 'short',
             build: parsed.golfer?.build || 'standard',
           },
         };
@@ -3780,7 +3819,7 @@
           ? '#24804a'
           : gCfg.shirt;
 
-        const pantsColor = equipped.has('bunker_slacks') ? '#d8cca8' : '#2c3338';
+        const pantsColor = equipped.has('bunker_slacks') ? '#d8cca8' : (gCfg.pants || '#2c3338');
         // His sneakers: black with white soles and stripes (gold if Golden Cleats)
         const shoeColor = equipped.has('golden_cleats') ? '#e8bd46' : '#17191c';
         const soleColor = equipped.has('golden_cleats') ? '#1c1e20' : '#f5f5f5';
@@ -3798,9 +3837,9 @@
         });
         const matSole = new THREE.MeshStandardMaterial({ color: soleColor, roughness: 0.7, flatShading: false });
         const matStripe = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.6, flatShading: false });
-        // His cap is RED (flat-brim); the Claret Crown stays gold.
+        // His flat-brim cap, in his chosen hat colour (red by default); the Claret Crown stays gold.
         const matHat = new THREE.MeshStandardMaterial({
-          color: equipped.has('claret_crown') ? '#d4af37' : '#c8102e',
+          color: equipped.has('claret_crown') ? '#d4af37' : (gCfg.hatColor || '#c8102e'),
           roughness: equipped.has('claret_crown') ? 0.3 : 0.7,
           metalness: equipped.has('claret_crown') ? 0.7 : 0.05,
           flatShading: false,
@@ -3900,10 +3939,42 @@
           torsoPivot.add(M(new THREE.BoxGeometry(0.012, 0.01, 0.12), matGlasses, templeSide * 0.10, 0.882, 0.09));
         });
         torsoPivot.add(M(new THREE.BoxGeometry(0.035, 0.012, 0.012), matGlasses, 0, 0.885, 0.142));
-        // Short hair at the back of the head, under the cap
-        const backHair = M(new THREE.SphereGeometry(0.13, 14, 10), matHair, 0, 0.82, -0.10);
-        backHair.scale.set(1.0, 0.8, 0.55);
-        torsoPivot.add(backHair);
+        // Hairstyle — short (default), afro, dreads, long, bald. Hair renders
+        // under the cap/visor, so it shows at the back and sides with headwear on.
+        const hairStyle = gCfg.hair || 'short';
+        if (hairStyle === 'afro') {
+          const afro = M(new THREE.SphereGeometry(0.205, 18, 14), matHair, 0, 0.94, -0.02);
+          afro.scale.set(1.05, 0.85, 1.05);
+          torsoPivot.add(afro);
+        } else if (hairStyle === 'dreads') {
+          torsoPivot.add(M(new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.88, -0.01));
+          [-0.10, -0.05, 0, 0.05, 0.10].forEach((dx) => {
+            const d = M(new THREE.CylinderGeometry(0.02, 0.016, 0.20, 8), matHair, dx, 0.72, -0.12);
+            d.rotation.x = 0.12;
+            d.rotation.z = -dx * 0.8;
+            torsoPivot.add(d);
+          });
+          [-0.12, 0.12].forEach((dx) => {
+            const d = M(new THREE.CylinderGeometry(0.018, 0.015, 0.14, 8), matHair, dx, 0.76, 0.02);
+            d.rotation.z = dx > 0 ? -0.25 : 0.25;
+            torsoPivot.add(d);
+          });
+        } else if (hairStyle === 'long') {
+          torsoPivot.add(M(new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.88, -0.01));
+          const back = M(new THREE.SphereGeometry(0.15, 14, 10), matHair, 0, 0.68, -0.11);
+          back.scale.set(0.95, 1.5, 0.5);
+          torsoPivot.add(back);
+        } else if (hairStyle === 'bald') {
+          // No hair at all.
+        } else {
+          // Short (default): hair at the back, plus a top cap when bare-headed.
+          const backHair = M(new THREE.SphereGeometry(0.13, 14, 10), matHair, 0, 0.82, -0.10);
+          backHair.scale.set(1.0, 0.8, 0.55);
+          torsoPivot.add(backHair);
+          if (gCfg.hat === 'none') {
+            torsoPivot.add(M(new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.88, -0.01));
+          }
+        }
 
         // Headwear — his red flat-brim cap
         if (equipped.has('claret_crown')) {
@@ -3925,10 +3996,6 @@
           const brim = M(new THREE.CylinderGeometry(0.12, 0.12, 0.02, 16), matHat, 0, 0.90, 0.15);
           brim.scale.set(1.5, 1, 1.2);
           torsoPivot.add(brim);
-        } else {
-          // No hat: short hair all over the top
-          const hair = M(new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.88, -0.01);
-          torsoPivot.add(hair);
         }
 
         // ARMS + Club Pivot — long human arms: shoulder, upper arm, elbow,
@@ -5257,9 +5324,46 @@
           skinRow.appendChild(b);
         });
 
+        const pantsRow = document.getElementById('pants-swatches');
+        pantsRow.innerHTML = '';
+        PANTS_COLORS.forEach((hex) => {
+          const b = document.createElement('button');
+          b.className = 'swatch-btn' + (saveData.golfer.pants === hex ? ' active' : '');
+          b.style.background = hex;
+          b.addEventListener('click', () => {
+            saveData.golfer.pants = hex;
+            persistSave();
+            rebuildGolferMesh();
+            placeGolferAtBall();
+            renderCreatorPickers();
+          });
+          pantsRow.appendChild(b);
+        });
+
+        const hatColorRow = document.getElementById('hat-color-swatches');
+        hatColorRow.innerHTML = '';
+        HAT_COLORS.forEach((hex) => {
+          const b = document.createElement('button');
+          b.className = 'swatch-btn' + (saveData.golfer.hatColor === hex ? ' active' : '');
+          b.style.background = hex;
+          b.addEventListener('click', () => {
+            saveData.golfer.hatColor = hex;
+            persistSave();
+            rebuildGolferMesh();
+            placeGolferAtBall();
+            renderCreatorPickers();
+          });
+          hatColorRow.appendChild(b);
+        });
+
         document.querySelectorAll('#hat-picker [data-hat]').forEach((btn) => {
           btn.classList.toggle('active', btn.dataset.hat === saveData.golfer.hat);
         });
+        document.querySelectorAll('#hair-picker [data-hair]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.hair === (saveData.golfer.hair || 'short'));
+        });
+        const hatColorGroup = document.getElementById('hat-color-group');
+        if (hatColorGroup) hatColorGroup.classList.toggle('hidden', saveData.golfer.hat === 'none');
         document.querySelectorAll('#build-picker [data-build]').forEach((btn) => {
           btn.classList.toggle('active', btn.dataset.build === saveData.golfer.build);
         });
@@ -5457,6 +5561,16 @@
       document.querySelectorAll('#build-picker [data-build]').forEach((btn) => {
         btn.addEventListener('click', () => {
           saveData.golfer.build = btn.dataset.build;
+          persistSave();
+          rebuildGolferMesh();
+          placeGolferAtBall();
+          renderCreatorPickers();
+        });
+      });
+
+      document.querySelectorAll('#hair-picker [data-hair]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          saveData.golfer.hair = btn.dataset.hair;
           persistSave();
           rebuildGolferMesh();
           placeGolferAtBall();
