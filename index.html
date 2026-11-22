@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.10</div>
+        <div class="build-tag">BUILD v2026.11.21.11</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.10</div>
+        <div class="build-tag">BUILD v2026.11.21.11</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1088,7 +1088,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.10</div>
+        <div class="build-tag">BUILD v2026.11.21.11</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1105,7 +1105,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.10</div>
+          <div class="build-tag">BUILD v2026.11.21.11</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2758,7 +2758,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.10
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.11
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -4804,10 +4804,15 @@
                 handleHazardPenalty('OUT OF BOUNDS! +1 Penalty');
                 return;
               }
-              // Bounce restitution & realistic turf check by surface
-              const bounceY = hitSurface === 'Bunker' ? 0.06 : hitSurface === 'Rough' ? 0.18 : hitSurface === 'Green' ? 0.28 : 0.34;
-              const firstKeep = hitSurface === 'Bunker' ? 0.08 : hitSurface === 'Rough' ? 0.18 : hitSurface === 'Green' ? 0.22 : 0.27;
-              const keepXZ = state.firstBounce ? firstKeep : 0.72;
+              // Bounce restitution & realistic turf check by surface.
+              // The ball used to keep 72% of its speed on every bounce
+              // after the first and pop back up 0.34, so it flew another
+              // ~35 yd after landing. Real turf kills the bounce: the
+              // first bounce keeps ~20% on fairway and later bounces
+              // kill half the speed each time.
+              const bounceY = hitSurface === 'Bunker' ? 0.06 : hitSurface === 'Rough' ? 0.12 : hitSurface === 'Green' ? 0.20 : 0.25;
+              const firstKeep = hitSurface === 'Bunker' ? 0.06 : hitSurface === 'Rough' ? 0.12 : hitSurface === 'Green' ? 0.15 : 0.20;
+              const keepXZ = state.firstBounce ? firstKeep : 0.50;
               state.firstBounce = false;
               if (Math.abs(state.ballVel.y) > 1.4) {
                 state.ballVel.y = Math.abs(state.ballVel.y) * bounceY;
@@ -4843,9 +4848,9 @@
 
             const friction =
               surface === 'Bunker' ? 24.0 :
-              surface === 'Rough' ? 14.0 :
-              surface === 'Fairway' ? 8.5 :
-              3.15; // Green
+              surface === 'Rough' ? 18.0 :
+              surface === 'Fairway' ? 12.0 :
+              3.15; // Green (putt speed is calibrated to this)
 
             const spd = Math.hypot(state.ballVel.x, state.ballVel.z);
             if (spd > 0.001) {
@@ -5813,7 +5818,7 @@
           e.preventDefault();
           aimHold = dir;
           aimHoldSince = performance.now();
-          adjustAim(dir * 0.055);
+          adjustAim(dir * 0.02);
         });
         ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) =>
           btn.addEventListener(ev, () => { if (aimHold === dir) aimHold = 0; })
@@ -5856,7 +5861,7 @@
         if (dragStartX !== null && state.mode === 'play' && state.swingPhase === 'ready') {
           const dx = e.clientX - dragStartX;
           dragStartX = e.clientX;
-          adjustAim(-dx * 0.0045);
+          adjustAim(-dx * 0.0025);
         }
       });
       window.addEventListener('pointerup', () => { dragStartX = null; });
@@ -5867,9 +5872,9 @@
           e.preventDefault();
           handleSwingTap();
         } else if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-          adjustAim(0.045);
+          adjustAim(0.02);
         } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-          adjustAim(-0.045);
+          adjustAim(-0.02);
         }
       });
 
@@ -5981,11 +5986,11 @@
           // re-place the golfer each frame while it turns.
           if (state.swingPhase === 'ready') {
             if (aimHold !== 0 && performance.now() - aimHoldSince > 350) {
-              state.aimTarget += aimHold * dt * 0.6;
+              state.aimTarget += aimHold * dt * 0.35;
             }
             const aimDiff = state.aimTarget - state.aimAngle;
             if (Math.abs(aimDiff) > 0.0004) {
-              state.aimAngle += aimDiff * Math.min(1, dt * 10);
+              state.aimAngle += aimDiff * Math.min(1, dt * 12);
               placeGolferAtBall();
               updateAimAndHUD();
             } else if (aimDiff !== 0) {
