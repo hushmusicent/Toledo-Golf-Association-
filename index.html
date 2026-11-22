@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.11</div>
+        <div class="build-tag">BUILD v2026.11.21.13</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.11</div>
+        <div class="build-tag">BUILD v2026.11.21.13</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1088,7 +1088,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.11</div>
+        <div class="build-tag">BUILD v2026.11.21.13</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1105,7 +1105,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.11</div>
+          <div class="build-tag">BUILD v2026.11.21.13</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2758,7 +2758,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.11
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.13
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -3793,16 +3793,18 @@
           placed++;
         }
 
-        // 11. OUT OF BOUNDS "gate": white stakes along both sides at the
-        // 82-yd OB line, where getSurfaceAt turns OB. (The +1
-        // stroke-and-distance penalty already existed in
-        // handleHazardPenalty — it was just invisible.)
+        // 11. OUT OF BOUNDS wooden fence: posts + two rails along both
+        // sides at the 82-yd OB line, where getSurfaceAt turns OB. (The
+        // +1 stroke-and-distance penalty already existed in
+        // handleHazardPenalty.) The thin white stakes were invisible
+        // from the tee — a fence reads as a line down both sides.
         if (hole.par >= 4) {
-          const obGeo = new THREE.CylinderGeometry(0.09, 0.09, 1.3, 5);
-          const obMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, flatShading: true });
-          const obCapGeo = new THREE.SphereGeometry(0.15, 6, 5);
-          for (let i = 0; i <= 13; i++) {
-            const t = 0.05 + (i / 13) * 0.9;
+          const woodPostMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.9, flatShading: true });
+          const woodRailMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9, flatShading: true });
+          // Posts (one InstancedMesh for all of them).
+          const postSpots = [];
+          for (let i = 0; i <= 23; i++) {
+            const t = 0.04 + (i / 23) * 0.92;
             const pt = hole.curve.getPoint(t);
             const tan = hole.curve.getTangent(t).normalize();
             const nx = -tan.y;
@@ -3811,17 +3813,50 @@
               const sx = pt.x + nx * side * 82;
               const sz = pt.y + nz * side * 82;
               if (hole.getSurfaceAt(sx, sz) === 'Water') return;
-              const gy = hole.groundHeightAt(sx, sz);
-              const stake = new THREE.Mesh(obGeo, obMat);
-              stake.position.set(sx, gy + 0.65, sz);
-              stake.userData.obStake = true;
-              worldGroup.add(stake);
-              const cap = new THREE.Mesh(obCapGeo, obMat);
-              cap.position.set(sx, gy + 1.32, sz);
-              cap.userData.obStake = true;
-              worldGroup.add(cap);
+              postSpots.push([sx, sz]);
             });
           }
+          const postMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.2, 1.5, 0.2), woodPostMat, Math.max(1, postSpots.length));
+          const _fenceM4 = new THREE.Matrix4();
+          postSpots.forEach(([sx, sz], idx) => {
+            _fenceM4.makeTranslation(sx, hole.groundHeightAt(sx, sz) + 0.75, sz);
+            postMesh.setMatrixAt(idx, _fenceM4);
+          });
+          postMesh.count = postSpots.length;
+          postMesh.instanceMatrix.needsUpdate = true;
+          postMesh.castShadow = true;
+          postMesh.userData.fence = true;
+          worldGroup.add(postMesh);
+          // Rails: 10 chunks per side, two rails each, following the curve.
+          [-1, 1].forEach((side) => {
+            for (let c = 0; c < 10; c++) {
+              const t0 = 0.04 + (c / 10) * 0.92;
+              const t1 = 0.04 + ((c + 1) / 10) * 0.92;
+              const tMid = (t0 + t1) / 2;
+              const tanM = hole.curve.getTangent(tMid).normalize();
+              const nx = -tanM.y;
+              const nz = tanM.x;
+              const p0 = hole.curve.getPoint(t0);
+              const p1 = hole.curve.getPoint(t1);
+              const e0x = p0.x + nx * side * 82;
+              const e0z = p0.y + nz * side * 82;
+              const e1x = p1.x + nx * side * 82;
+              const e1z = p1.y + nz * side * 82;
+              if (hole.getSurfaceAt(e0x, e0z) === 'Water' || hole.getSurfaceAt(e1x, e1z) === 'Water') continue;
+              const mx = (e0x + e1x) / 2;
+              const mz = (e0z + e1z) / 2;
+              const len = Math.hypot(e1x - e0x, e1z - e0z);
+              const ang = Math.atan2(-(e1z - e0z), e1x - e0x);
+              const gy = hole.groundHeightAt(mx, mz);
+              [0.55, 1.05].forEach((rh) => {
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(len, 0.12, 0.08), woodRailMat);
+                rail.position.set(mx, gy + rh, mz);
+                rail.rotation.y = ang;
+                rail.userData.fence = true;
+                worldGroup.add(rail);
+              });
+            }
+          });
         }
 
         // 12. Fans on the sides: a low-poly gallery standing behind the
@@ -3844,7 +3879,7 @@
             const nx = -tan.y;
             const nz = tan.x;
             const side = i % 2 === 0 ? 1 : -1;
-            let off = 87 + fanRand() * 9;
+            let off = 84 + fanRand() * 4;
             let fx = pt.x + nx * side * off;
             let fz = pt.y + nz * side * off;
             if (hole.getSurfaceAt(fx, fz) === 'Water') {
@@ -3878,9 +3913,69 @@
             legR.position.set(0.1, 0.3, 0);
             fan.add(legR);
             fan.position.set(fx, gy, fz);
-            fan.rotation.y = fanRand() * Math.PI * 2;
+            fan.rotation.y = Math.atan2(-(pt.x - fx), -(pt.y - fz));
+            fan.scale.setScalar(1.25);
             worldGroup.add(fan);
           }
+
+          // Spectators you can actually see: a crowd around the green
+          // and a few by the tee (the gallery above is pulled in closer
+          // and made bigger too).
+          const addFan = (fx, fz, faceX, faceZ) => {
+            if (hole.getSurfaceAt(fx, fz) === 'Water') return;
+            const gy = hole.groundHeightAt(fx, fz);
+            const fan = new THREE.Group();
+            const body = new THREE.Mesh(fanBodyGeo, fanMats[Math.floor(fanRand() * fanMats.length)]);
+            body.position.y = 0.75;
+            body.userData.fan = true;
+            fan.add(body);
+            const head = new THREE.Mesh(fanHeadGeo, fanSkinMats[Math.floor(fanRand() * fanSkinMats.length)]);
+            head.position.y = 1.45;
+            head.userData.fan = true;
+            fan.add(head);
+            if (fanRand() > 0.5) {
+              const cap = new THREE.Mesh(fanCapGeo, fanMats[Math.floor(fanRand() * fanMats.length)]);
+              cap.position.y = 1.6;
+              cap.userData.fan = true;
+              fan.add(cap);
+            }
+            const legL = new THREE.Mesh(fanLegGeo, fanLegMat);
+            legL.position.set(-0.1, 0.3, 0);
+            fan.add(legL);
+            const legR = new THREE.Mesh(fanLegGeo, fanLegMat);
+            legR.position.set(0.1, 0.3, 0);
+            fan.add(legR);
+            fan.position.set(fx, gy, fz);
+            fan.rotation.y = Math.atan2(-(faceX - fx), -(faceZ - fz));
+            fan.scale.setScalar(1.25);
+            worldGroup.add(fan);
+          };
+          // Around the green (visible on every approach and putt).
+          for (let i = 0; i < 5; i++) {
+            const a = 0.4 + i * 1.25 + fanRand() * 0.3;
+            const r = hole.greenRadius + 9 + fanRand() * 4;
+            addFan(hole.pin.x + Math.cos(a) * r, hole.pin.y + Math.sin(a) * r, hole.pin.x, hole.pin.y);
+          }
+          // Near gallery: fans just off the fairway edge (30-34 yd from
+          // the centerline, where real tournament ropes are) — the
+          // crowd you can see from the tee and all through the hole.
+          // The far gallery behind the fence is too far out to read
+          // in the narrow portrait camera.
+          for (let i = 0; i < 10; i++) {
+            const t = Math.min(0.94, Math.max(0.06, 0.15 + (i / 9) * 0.75 + (fanRand() - 0.5) * 0.03));
+            const pt = hole.curve.getPoint(t);
+            const tan = hole.curve.getTangent(t).normalize();
+            const nx = -tan.y;
+            const nz = tan.x;
+            const side = i % 2 === 0 ? 1 : -1;
+            const off = 30 + fanRand() * 4;
+            addFan(pt.x + nx * side * off, pt.y + nz * side * off, pt.x, pt.y);
+          }
+          // By the tee (visible at address — just off the fairway,
+          // ~10 degrees off-axis, inside the narrow portrait camera).
+          [[-7, 32], [7, 34], [-9, 50]].forEach(([ox, oz]) => {
+            addFan(ox, oz, 0, 0);
+          });
         }
 
         // Update sun shadow bounds to cover hole
