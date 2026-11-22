@@ -100,6 +100,29 @@
         outline-offset: 2px;
       }
 
+      /* LOGIN / MENU / MODE SCREENS */
+      #login-screen, #menu-screen, #mode-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        overflow-y: auto;
+        padding: 18px 20px 36px;
+        background: linear-gradient(180deg, rgba(8, 16, 12, 0.72) 0%, rgba(8, 16, 12, 0.54) 45%, rgba(8, 16, 12, 0.86) 100%);
+      }
+      .menu-wrap { max-width: 560px; margin: 8vh auto 0; }
+      .menu-btn {
+        display: block; width: 100%; text-align: left;
+        padding: 16px 18px; margin: 10px 0; border-radius: 12px;
+        background: rgba(255,255,255,0.07); border: 1px solid rgba(226,184,79,0.45);
+        color: var(--text-main); font-size: 17px; font-weight: 700;
+      }
+      .menu-btn small { display: block; font-weight: 400; font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+      .menu-btn:hover { background: rgba(226,184,79,0.18); }
+      .profile-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(226,184,79,0.18); color: var(--gold); font-size: 13px; font-weight: 700; }
+      .login-profile-btn { display: block; width: 100%; text-align: left; padding: 12px 14px; margin: 6px 0; border-radius: 10px; background: rgba(255,255,255,0.07); border: 1px solid var(--border-soft); color: var(--text-main); font-size: 15px; font-weight: 700; }
+      .login-profile-btn:hover { background: rgba(226,184,79,0.18); }
+      #home-mode-line { margin: 10px 0 0; color: var(--gold); font-size: 13px; font-weight: 700; }
+
       /* HOME SCREEN */
       #home-screen {
         position: fixed;
@@ -1004,11 +1027,61 @@
   <body>
     <div id="viewport"></div>
 
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen">
+      <div class="menu-wrap">
+        <div class="build-tag">BUILD v2026.11.21.3</div>
+        <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
+        <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
+        <h2 class="panel-title">Player Login</h2>
+        <div class="field-group">
+          <label class="field-label" for="login-name-input">Your Name</label>
+          <input class="text-input" id="login-name-input" type="text" maxlength="18" placeholder="e.g. Hush" />
+        </div>
+        <button class="btn-primary" id="btn-login" style="width:100%;padding:14px;">Log In</button>
+        <div id="login-profiles" style="margin-top:18px;"></div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:14px;">Your career, gear and golfer save under your name on this device.</p>
+      </div>
+    </div>
+
+    <!-- MAIN MENU -->
+    <div id="menu-screen" class="hidden">
+      <div class="menu-wrap">
+        <div class="build-tag">BUILD v2026.11.21.3</div>
+        <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
+        <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
+        <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
+        <button class="menu-btn" id="btn-mode-pvc">Player vs CPU<small>Tournament against 3 CPU rivals</small></button>
+        <button class="menu-btn" id="btn-mode-pvp">Player vs Player<small>Pass-and-play on this phone</small></button>
+        <button class="menu-btn" id="btn-menu-shop">Pro Shop<small>Gear and golfer skills</small></button>
+        <div style="display:flex; gap:10px; margin-top:16px;">
+          <button class="btn-secondary" id="btn-menu-golfer" style="flex:1;">Edit Golfer</button>
+          <button class="btn-secondary" id="btn-menu-logout" style="flex:1;">Switch Player</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE / FORMAT SCREEN -->
+    <div id="mode-screen" class="hidden">
+      <div class="menu-wrap">
+        <div class="build-tag">BUILD v2026.11.21.3</div>
+        <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
+        <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
+        <div class="field-group hidden" id="pvp2-row">
+          <label class="field-label" for="pvp2-name-input">Player 2 Name</label>
+          <input class="text-input" id="pvp2-name-input" type="text" maxlength="18" value="Player 2" />
+        </div>
+        <button class="menu-btn" id="btn-format-match">Match Play<small>Win holes one at a time — most holes won takes the match</small></button>
+        <button class="menu-btn" id="btn-format-stroke">Stroke Play<small>Lowest total strokes wins the round</small></button>
+        <button class="btn-secondary" id="btn-mode-back" style="margin-top:12px;">Back</button>
+      </div>
+    </div>
+
     <!-- HOME SCREEN -->
-    <div id="home-screen">
+    <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.2</div>
+          <div class="build-tag">BUILD v2026.11.21.3</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -1024,6 +1097,7 @@
           <div class="home-actions">
             <button class="btn-secondary" id="btn-open-shop">Pro Shop (8)</button>
             <button class="btn-secondary" id="btn-open-skills">Golfer Skills</button>
+            <button class="btn-secondary" id="btn-home-menu">Menu</button>
           </div>
         </div>
 
@@ -1036,6 +1110,8 @@
             <button class="tod-btn" data-tod="sunset">Sunset</button>
           </div>
         </div>
+
+        <div id="home-mode-line">Pick a course</div>
 
         <div class="course-grid" id="course-grid"></div>
       </div>
@@ -1084,7 +1160,7 @@
 
         <div style="display:flex; gap:10px; padding-top:4px;">
           <button class="btn-secondary" id="btn-creator-back" style="flex:1;">Back</button>
-          <button class="btn-primary" id="btn-tee-off" style="flex:2;">Tee Off Hole 1</button>
+          <button class="btn-primary" id="btn-tee-off" style="flex:2;">Continue</button>
         </div>
       </div>
     </div>
@@ -2510,13 +2586,56 @@
       // =========================================================================
       // 2. SAVE STATE (localStorage)
       // =========================================================================
-      const STORAGE_KEY = 'tga_golf_tour_save_v1';
-      function loadSave() {
+      // LOGIN / PROFILES: one save per player name on this device.
+      const LEGACY_STORAGE_KEY = 'tga_golf_tour_save_v1';
+      const PROFILE_INDEX_KEY = 'tga_golf_tour_profiles_v1';
+      const LAST_PROFILE_KEY = 'tga_golf_tour_last_profile_v1';
+      let currentProfile = null;
+      function profileKey(name) {
+        const clean = String(name || 'player').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'player';
+        return `tga_golf_tour_save_${clean}`;
+      }
+      function listProfiles() {
         try {
-          const raw = localStorage.getItem(STORAGE_KEY);
+          const raw = localStorage.getItem(PROFILE_INDEX_KEY);
+          const arr = raw ? JSON.parse(raw) : [];
+          return Array.isArray(arr) ? arr.filter((n) => typeof n === 'string' && n) : [];
+        } catch { return []; }
+      }
+      function rememberProfile(name) {
+        try {
+          const list = listProfiles();
+          if (!list.includes(name)) list.push(name);
+          localStorage.setItem(PROFILE_INDEX_KEY, JSON.stringify(list));
+          localStorage.setItem(LAST_PROFILE_KEY, name);
+        } catch {}
+      }
+      function defaultSave(golferName) {
+        return {
+          careerEarnings: 0,
+          roundPoints: 0,
+          ownedItems: [],
+          equippedItems: [],
+          skills: { power: 0, accuracy: 0, shortGame: 0 },
+          bestScores: {},
+          tod: 'midday',
+          golfer: {
+            name: golferName || 'Hush',
+            shirt: SHIRT_COLORS[5],
+            skin: SKIN_TONES[3],
+            hat: 'cap',
+            build: 'standard',
+          },
+        };
+      }
+      function loadSave(profileName) {
+        try {
+          const raw = localStorage.getItem(profileKey(profileName));
           if (raw) {
             const parsed = JSON.parse(raw);
+            const base = defaultSave(profileName);
             return {
+              ...base,
               careerEarnings: Number(parsed.careerEarnings) || 0,
               roundPoints: Number(parsed.roundPoints) || 0,
               ownedItems: Array.isArray(parsed.ownedItems) ? parsed.ownedItems : [],
@@ -2529,7 +2648,7 @@
               bestScores: parsed.bestScores || {},
               tod: parsed.tod && TIME_OF_DAY[parsed.tod] ? parsed.tod : 'midday',
               golfer: {
-                name: parsed.golfer?.name || 'Hush',
+                name: parsed.golfer?.name || profileName || 'Hush',
                 shirt: parsed.golfer?.shirt || SHIRT_COLORS[5],
                 skin: parsed.golfer?.skin || SKIN_TONES[3],
                 hat: parsed.golfer?.hat || 'cap',
@@ -2538,28 +2657,42 @@
             };
           }
         } catch {}
-        return {
-          careerEarnings: 0,
-          roundPoints: 0,
-          ownedItems: [],
-          equippedItems: [],
-          skills: { power: 0, accuracy: 0, shortGame: 0 },
-          bestScores: {},
-          tod: 'midday',
-          golfer: {
-            name: 'Hush',
-            shirt: SHIRT_COLORS[5],
-            skin: SKIN_TONES[3],
-            hat: 'cap',
-            build: 'standard',
-          },
-        };
+        return defaultSave(profileName);
       }
-      const saveData = loadSave();
+      // Migrate the old single save (pre-login) into a profile once, so nobody loses progress.
+      function migrateLegacySave() {
+        try {
+          if (listProfiles().length) return;
+          const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          const name = (parsed.golfer && parsed.golfer.name) || 'Hush';
+          localStorage.setItem(profileKey(name), raw);
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+          rememberProfile(name);
+        } catch {}
+      }
+      migrateLegacySave();
+      let saveData = null;
+      function switchProfile(name) {
+        currentProfile = name;
+        if (typeof state !== 'undefined') state.profile = name;
+        saveData = loadSave(name);
+        rememberProfile(name);
+        persistSave();
+      }
       function persistSave() {
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+          if (!saveData || !currentProfile) return;
+          localStorage.setItem(profileKey(currentProfile), JSON.stringify(saveData));
         } catch {}
+      }
+      // Backdrop save for the login/menu screens: last player, or a fresh default.
+      {
+        let last = null;
+        try { last = localStorage.getItem(LAST_PROFILE_KEY); } catch {}
+        currentProfile = last;
+        saveData = loadSave(last || 'Hush');
       }
 
       // =========================================================================
@@ -3692,7 +3825,14 @@
       // 8. GAME STATE, PHYSICS & TOURNAMENT LOGIC
       // =========================================================================
       const state = {
-        mode: 'home', // home | creator | play | flyover | roundEnd
+        mode: 'login', // login | menu | mode | home | creator | play | flyover | roundEnd
+        profile: currentProfile,
+        gameMode: 'single', // single | pvc | pvp
+        format: 'stroke', // stroke | match
+        matchUp: 0, // holes up for the player in match play (negative = down)
+        matchHoles: [], // 'W' | 'L' | 'H' per hole in match play
+        pvp: null, // { p1: {name, scores: []}, p2: {name, scores: []}, active: 0 }
+        creatorReturn: 'login', // where the creator's Back button goes: login | menu
         course: COURSES[0],
         holeIdx: 0,
         stroke: 1,
@@ -3868,12 +4008,21 @@
         document.getElementById('hud-hole').textContent = `HOLE ${state.holeIdx + 1}`;
         document.getElementById('hud-hole-specs').textContent = `PAR ${hole.par} · ${hole.totalYards} YD`;
         document.getElementById('hud-course-name').textContent = state.course.shortName;
-        document.getElementById('hud-stroke').textContent = `Stroke ${state.stroke}`;
+        document.getElementById('hud-stroke').textContent = state.gameMode === 'pvp' && state.pvp
+          ? `Stroke ${state.stroke} — ${state.pvp.active === 0 ? state.pvp.p1.name : state.pvp.p2.name}`
+          : `Stroke ${state.stroke}`;
 
         const completedPar = state.holeScores.reduce((acc, _, i) => acc + state.course.pars[i], 0);
         const completedStrokes = state.holeScores.reduce((a, b) => a + b, 0);
         const diff = completedStrokes - completedPar;
-        document.getElementById('hud-total-score').textContent = `Score: ${formatVsPar(diff)} (${completedStrokes})`;
+        if (state.format === 'match') {
+          document.getElementById('hud-total-score').textContent = `Match: ${matchStatusText()}`;
+        } else if (state.gameMode === 'pvp' && state.pvp) {
+          const p2Total = state.pvp.p2.scores.reduce((a, b) => a + b, 0);
+          document.getElementById('hud-total-score').textContent = `${state.pvp.p1.name} ${completedStrokes} · ${state.pvp.p2.name} ${p2Total}`;
+        } else {
+          document.getElementById('hud-total-score').textContent = `Score: ${formatVsPar(diff)} (${completedStrokes})`;
+        }
 
         // Distance & Lie
         document.getElementById('hud-dist').textContent = isGreen
@@ -4386,16 +4535,59 @@
         else if (diff === 1) callout = 'BOGEY';
         else if (diff === 2) callout = 'DOUBLE BOGEY';
 
-        showToast(callout, 2.5);
-        state.holeScores.push(score);
+        // Record the score: state.holeScores is Player 1's card; PvP Player 2 has their own.
+        const isPvp = state.gameMode === 'pvp' && state.pvp;
+        if (isPvp && state.pvp.active === 1) {
+          state.pvp.p2.scores.push(score);
+        } else {
+          state.holeScores.push(score);
+          if (isPvp) state.pvp.p1.scores.push(score);
+        }
 
         // Award round points per hole
         const holePts = Math.max(1, 3 - diff);
         saveData.roundPoints += holePts;
         persistSave();
 
+        // Match play: decide the hole and update the match score.
+        if (state.format === 'match') {
+          let result = 'H';
+          if (isPvp) {
+            if (state.pvp.active === 1) {
+              result = matchHoleResult(state.pvp.p1.scores[state.holeIdx], state.pvp.p2.scores[state.holeIdx]);
+            }
+          } else if (state.gameMode === 'pvc') {
+            result = matchHoleResult(score, state.rivalScores[0][state.holeIdx]);
+          } else {
+            result = matchHoleResult(score, par);
+          }
+          if (!isPvp || state.pvp.active === 1) {
+            if (result === 'W') state.matchUp += 1;
+            if (result === 'L') state.matchUp -= 1;
+            state.matchHoles.push(result);
+          }
+          callout += ` · ${matchStatusText()}`;
+        }
+
+        showToast(callout, 2.5);
+
         setTimeout(() => {
           if (state.mode !== 'play') return;
+          // PvP hotseat: Player 1 finishes the hole, then Player 2 plays the same hole.
+          if (isPvp && state.pvp.active === 0) {
+            state.pvp.active = 1;
+            showToast(`${state.pvp.p2.name}'s turn — Hole ${state.holeIdx + 1}`, 2.5);
+            setupHole(state.holeIdx);
+            setSwingUIState();
+            return;
+          }
+          if (isPvp) state.pvp.active = 0;
+          // Match decided early when the lead is bigger than the holes left.
+          const holesLeft = state.course.holesCount - (state.holeIdx + 1);
+          if (state.format === 'match' && Math.abs(state.matchUp) > holesLeft) {
+            finishRound();
+            return;
+          }
           if (state.holeIdx + 1 < state.course.holesCount) {
             setupHole(state.holeIdx + 1);
           } else {
@@ -4426,34 +4618,81 @@
         const totalPar = state.course.parTotal;
         const playerTotal = state.holeScores.reduce((a, b) => a + b, 0);
         const playerDiff = playerTotal - totalPar;
-
-        const standings = [
-          { name: saveData.golfer.name, isPlayer: true, total: playerTotal, diff: playerDiff },
-          ...RIVALS_META.map((r, i) => {
-            const t = state.rivalScores[i].reduce((a, b) => a + b, 0);
-            return { name: r.name, isPlayer: false, total: t, diff: t - totalPar };
-          }),
-        ].sort((a, b) => a.total - b.total);
-
-        const place = standings.findIndex((s) => s.isPlayer) + 1;
         const basePurse = state.course.holesCount === 9 ? [2200, 1200, 750, 400] : [5000, 2800, 1600, 900];
-        const prize = basePurse[place - 1] + (playerDiff < 0 ? Math.abs(playerDiff) * 350 : 0);
-        const bonusPts = place === 1 ? 6 : place === 2 ? 4 : 2;
+
+        let place = 1;
+        let prize = 0;
+        let bonusPts = 2;
+        let title = `${state.course.shortName} Complete`;
+        let subtitle = '';
+        let finishLabel = '';
+
+        if (state.format === 'match') {
+          // Match play: the match score decides it; stroke totals don't.
+          const up = state.matchUp;
+          const won = up > 0;
+          const halved = up === 0;
+          place = won ? 1 : halved ? 2 : 3;
+          prize = basePurse[place - 1];
+          bonusPts = won ? 6 : halved ? 4 : 2;
+          const who = state.gameMode === 'pvp' && state.pvp
+            ? (won ? state.pvp.p1.name : halved ? 'Nobody' : state.pvp.p2.name)
+            : (won ? saveData.golfer.name : halved ? 'Nobody' : (state.gameMode === 'pvc' ? 'A. Fairchild' : 'Par'));
+          title = `${state.course.shortName} — Match Complete`;
+          subtitle = won ? `${who} wins ${Math.abs(up)} UP`
+            : halved ? 'Match halved — ALL SQUARE'
+            : `${who} wins ${Math.abs(up)} UP`;
+          finishLabel = won ? 'Match Won' : halved ? 'Halved' : 'Match Lost';
+        } else if (state.gameMode === 'single') {
+          // Solo stroke play: you vs the course, no rivals.
+          place = 1;
+          prize = (state.course.holesCount === 9 ? 250 : 500) + (playerDiff < 0 ? Math.abs(playerDiff) * 350 : 0);
+          bonusPts = 4;
+          subtitle = `Solo round · Final Score ${playerTotal} (${formatVsPar(playerDiff)})`;
+          finishLabel = 'Solo Round';
+        } else if (state.gameMode === 'pvp' && state.pvp) {
+          const p2Total = state.pvp.p2.scores.reduce((a, b) => a + b, 0);
+          const p1Won = playerTotal < p2Total;
+          const tied = playerTotal === p2Total;
+          place = p1Won ? 1 : tied ? 2 : 3;
+          prize = basePurse[place - 1];
+          bonusPts = p1Won ? 6 : tied ? 4 : 2;
+          subtitle = tied ? `Tied ${playerTotal} — ${playerTotal}`
+            : `${p1Won ? state.pvp.p1.name : state.pvp.p2.name} wins ${playerTotal} — ${p2Total}`;
+          finishLabel = p1Won ? 'You Win' : tied ? 'Tied' : 'You Lose';
+        } else {
+          // PvC stroke play: the 4-way tournament, as before.
+          const standings = [
+            { name: saveData.golfer.name, isPlayer: true, total: playerTotal, diff: playerDiff },
+            ...RIVALS_META.map((r, i) => {
+              const t = state.rivalScores[i].reduce((a, b) => a + b, 0);
+              return { name: r.name, isPlayer: false, total: t, diff: t - totalPar };
+            }),
+          ].sort((a, b) => a.total - b.total);
+          place = standings.findIndex((s) => s.isPlayer) + 1;
+          prize = basePurse[place - 1] + (playerDiff < 0 ? Math.abs(playerDiff) * 350 : 0);
+          bonusPts = place === 1 ? 6 : place === 2 ? 4 : 2;
+          subtitle = `Finished #${place} of 4 · Final Score ${playerTotal} (${formatVsPar(playerDiff)})`;
+          finishLabel = `#${place} Place`;
+        }
 
         saveData.careerEarnings += prize;
         saveData.roundPoints += bonusPts;
-        const prevBest = saveData.bestScores[state.course.id];
-        if (prevBest === undefined || playerTotal < prevBest) {
-          saveData.bestScores[state.course.id] = playerTotal;
+        // Best score only counts for a full stroke-play round.
+        if (state.format === 'stroke' && state.holeScores.length === state.course.holesCount) {
+          const prevBest = saveData.bestScores[state.course.id];
+          if (prevBest === undefined || playerTotal < prevBest) {
+            saveData.bestScores[state.course.id] = playerTotal;
+          }
         }
         persistSave();
 
-        document.getElementById('end-title').textContent = `${state.course.shortName} Complete`;
-        document.getElementById('end-subtitle').textContent = `Finished #${place} of 4 · Final Score ${playerTotal} (${formatVsPar(playerDiff)})`;
+        document.getElementById('end-title').textContent = title;
+        document.getElementById('end-subtitle').textContent = subtitle;
 
         document.getElementById('end-stats').innerHTML = `
-          <div class="hud-box"><div class="field-label">Final Score</div><div class="dist-readout tabular">${playerTotal} (${formatVsPar(playerDiff)})</div></div>
-          <div class="hud-box"><div class="field-label">Finish</div><div class="dist-readout tabular" style="color:var(--gold)">#${place} Place</div></div>
+          <div class="hud-box"><div class="field-label">Final Score</div><div class="dist-readout tabular">${state.format === 'match' ? matchStatusText() : `${playerTotal} (${formatVsPar(playerDiff)})`}</div></div>
+          <div class="hud-box"><div class="field-label">Finish</div><div class="dist-readout tabular" style="color:var(--gold)">${finishLabel}</div></div>
           <div class="hud-box"><div class="field-label">Prize Money</div><div class="dist-readout tabular" style="color:#7ee39b">+$${prize.toLocaleString()}</div></div>
           <div class="hud-box"><div class="field-label">Career Earnings</div><div class="dist-readout tabular">$${saveData.careerEarnings.toLocaleString()}</div></div>
         `;
@@ -4506,6 +4745,17 @@
           html += `<td class="${cls}">${sc != null ? sc : '–'}</td>`;
         }
         html += `<td><strong>${scores.length ? scoreSum : '–'}</strong></td></tr>`;
+
+        if (state.gameMode === 'pvp' && state.pvp) {
+          const scores2 = state.pvp.p2.scores.slice(start, end);
+          html += `<tr><td><strong>${state.pvp.p2.name}</strong></td>`;
+          for (let i = 0; i < pars.length; i++) {
+            const sc = scores2[i];
+            const cls = scoreCellClass(sc, pars[i]);
+            html += `<td class="${cls}">${sc != null ? sc : '–'}</td>`;
+          }
+          html += `<td><strong>${scores2.length ? scores2.reduce((a, b) => a + b, 0) : '–'}</strong></td></tr>`;
+        }
 
         html += `<tr><td>+/- Par</td>`;
         let runDiff = 0;
@@ -4562,13 +4812,37 @@
         const parThru = state.course.pars.slice(0, thru).reduce((a, b) => a + b, 0);
         const pTotal = state.holeScores.slice(0, thru).reduce((a, b) => a + b, 0);
 
-        const rows = [
-          { name: saveData.golfer.name, thru, total: pTotal, diff: pTotal - parThru, isPlayer: true },
-          ...RIVALS_META.map((r, i) => {
-            const rt = state.rivalScores[i].slice(0, thru).reduce((a, b) => a + b, 0);
-            return { name: r.name, thru, total: rt, diff: rt - parThru, isPlayer: false };
-          }),
-        ].sort((a, b) => a.diff - b.diff);
+        // Match play: show the match, not stroke totals.
+        if (state.format === 'match') {
+          const oppName = state.gameMode === 'pvc' ? 'A. Fairchild'
+            : state.gameMode === 'pvp' && state.pvp ? state.pvp.p2.name : 'Par';
+          const holesWon = state.matchHoles.filter((r) => r === 'W').length;
+          const holesLost = state.matchHoles.filter((r) => r === 'L').length;
+          const holesHalved = state.matchHoles.filter((r) => r === 'H').length;
+          return `<table class="score-table"><thead><tr><th style="text-align:left">Match</th><th>Holes Won</th><th>Status</th></tr></thead><tbody>
+            <tr style="background:rgba(226,184,79,0.16);font-weight:700;"><td style="text-align:left">${saveData.golfer.name} (YOU)</td><td>${holesWon}</td><td>${matchStatusText()}</td></tr>
+            <tr><td style="text-align:left">${oppName}</td><td>${holesLost}</td><td>${holesHalved} halved</td></tr>
+          </tbody></table>`;
+        }
+
+        let rows;
+        if (state.gameMode === 'single') {
+          rows = [{ name: saveData.golfer.name, thru, total: pTotal, diff: pTotal - parThru, isPlayer: true }];
+        } else if (state.gameMode === 'pvp' && state.pvp) {
+          const p2Total = state.pvp.p2.scores.slice(0, thru).reduce((a, b) => a + b, 0);
+          rows = [
+            { name: state.pvp.p1.name, thru, total: pTotal, diff: pTotal - parThru, isPlayer: true },
+            { name: state.pvp.p2.name, thru, total: p2Total, diff: p2Total - parThru, isPlayer: false },
+          ].sort((a, b) => a.diff - b.diff);
+        } else {
+          rows = [
+            { name: saveData.golfer.name, thru, total: pTotal, diff: pTotal - parThru, isPlayer: true },
+            ...RIVALS_META.map((r, i) => {
+              const rt = state.rivalScores[i].slice(0, thru).reduce((a, b) => a + b, 0);
+              return { name: r.name, thru, total: rt, diff: rt - parThru, isPlayer: false };
+            }),
+          ].sort((a, b) => a.diff - b.diff);
+        }
 
         let html = `<table class="score-table"><thead><tr><th>Pos</th><th style="text-align:left">Player</th><th>Thru</th><th>Strokes</th><th>To Par</th></tr></thead><tbody>`;
         rows.forEach((r, idx) => {
@@ -4588,6 +4862,9 @@
       // 13. UI BUILDERS & EVENT HANDLERS (Home, Creator, Pro Shop, Skills, HUD)
       // =========================================================================
       function renderHomeUI() {
+        const modeNames = { single: 'Single Player', pvc: 'Player vs CPU', pvp: 'Player vs Player' };
+        const fmtNames = { stroke: 'Stroke Play', match: 'Match Play' };
+        document.getElementById('home-mode-line').textContent = `${modeNames[state.gameMode]} · ${fmtNames[state.format]} — pick a course`;
         document.getElementById('home-earnings').textContent = `$${saveData.careerEarnings.toLocaleString()}`;
         document.getElementById('home-points').textContent = `${saveData.roundPoints} pts`;
         document.getElementById('home-gear-count').textContent = `${saveData.ownedItems.length} / ${PRO_SHOP_ITEMS.length}`;
@@ -4612,27 +4889,110 @@
               <span class="course-cta">Play Course →</span>
             </div>
           `;
-          card.addEventListener('click', () => openCreatorForCourse(c));
+          card.addEventListener('click', () => startRound(c));
           grid.appendChild(card);
         });
       }
 
-      function openCreatorForCourse(course) {
-        state.course = course;
+      // LOGIN -> CREATOR -> MENU -> MODE/FORMAT -> COURSE flow
+      const TOP_SCREENS = ['login-screen', 'menu-screen', 'mode-screen', 'home-screen', 'creator-screen', 'game-hud'];
+      function showScreen(name) {
+        TOP_SCREENS.forEach((id) => document.getElementById(id).classList.add('hidden'));
+        const map = { login: 'login-screen', menu: 'menu-screen', mode: 'mode-screen', home: 'home-screen', creator: 'creator-screen', play: 'game-hud' };
+        const el = document.getElementById(map[name] || name);
+        if (el) el.classList.remove('hidden');
+        state.mode = name;
+      }
+      function renderLogin() {
+        const list = listProfiles();
+        const box = document.getElementById('login-profiles');
+        box.innerHTML = '';
+        if (list.length) {
+          const h = document.createElement('div');
+          h.className = 'field-label';
+          h.textContent = 'Saved players on this device';
+          box.appendChild(h);
+          list.forEach((name) => {
+            const b = document.createElement('button');
+            b.className = 'login-profile-btn';
+            b.textContent = name;
+            b.addEventListener('click', () => loginAs(name));
+            box.appendChild(b);
+          });
+        }
+        const input = document.getElementById('login-name-input');
+        if (!input.value && currentProfile) input.value = currentProfile;
+      }
+      function loginAs(name) {
+        name = (name || '').trim();
+        if (!name) { showToast('Type your name first', 2); return; }
+        switchProfile(name);
+        state.creatorReturn = 'login';
+        openCreator();
+      }
+      function renderMenu() {
+        document.getElementById('menu-profile-line').textContent =
+          `Playing as ${state.profile || 'Player'} · Golfer ${saveData.golfer.name} · Career $${saveData.careerEarnings.toLocaleString()}`;
+      }
+      function renderMode() {
+        const titles = {
+          single: ['Single Player', 'Just you against the course.'],
+          pvc: ['Player vs CPU', 'Stroke play: tournament against 3 CPU rivals. Match play: head-to-head vs A. Fairchild.'],
+          pvp: ['Player vs Player', 'Pass-and-play on this phone — take turns on the same hole.'],
+        };
+        const [t, s] = titles[state.gameMode] || titles.single;
+        document.getElementById('mode-title').textContent = t;
+        document.getElementById('mode-subtitle').textContent = s;
+        document.getElementById('pvp2-row').classList.toggle('hidden', state.gameMode !== 'pvp');
+      }
+      // Creator is no longer tied to a picked course: it runs on Inverness Hole 1
+      // as the backdrop, and Continue goes to the menu (the round starts later).
+      function openCreator() {
+        state.course = COURSES[0];
         state.mode = 'creator';
-        document.getElementById('home-screen').classList.add('hidden');
-        document.getElementById('creator-screen').classList.remove('hidden');
-        document.getElementById('creator-course-label').textContent =
-          `${course.shortName.toUpperCase()} · PAR ${course.parTotal} · ${course.yardsTotal.toLocaleString()} YD`;
-
-        // Render Hole 1 of selected course behind creator!
-        const hole1 = buildHoleData(course, 0);
+        showScreen('creator');
+        document.getElementById('creator-course-label').textContent = 'CREATE YOUR GOLFER';
+        const hole1 = buildHoleData(COURSES[0], 0);
         renderHole3D(hole1);
         state.ballPos.set(0, hole1.teeBaseY + BALL_R, 0);
         state.aimAngle = 0;
         rebuildGolferMesh();
         placeGolferAtBall();
         renderCreatorPickers();
+      }
+      function startRound(course) {
+        state.course = course;
+        state.holeScores = [];
+        state.matchUp = 0;
+        state.matchHoles = [];
+        state.pvp = null;
+        if (state.gameMode === 'pvc') {
+          simulateRivalsForCourse(course);
+        } else {
+          state.rivalScores = [[], [], []];
+        }
+        if (state.gameMode === 'pvp') {
+          const p2name = (document.getElementById('pvp2-name-input').value || '').trim() || 'Player 2';
+          state.pvp = {
+            p1: { name: saveData.golfer.name, scores: [] },
+            p2: { name: p2name, scores: [] },
+            active: 0,
+          };
+        }
+        showScreen('play');
+        rebuildGolferMesh();
+        setupHole(0);
+        setSwingUIState();
+      }
+      function matchHoleResult(myScore, oppScore) {
+        if (myScore < oppScore) return 'W';
+        if (myScore > oppScore) return 'L';
+        return 'H';
+      }
+      function matchStatusText() {
+        if (state.matchUp > 0) return state.matchUp === 1 ? '1 UP' : `${state.matchUp} UP`;
+        if (state.matchUp < 0) return state.matchUp === -1 ? '1 DOWN' : `${-state.matchUp} DOWN`;
+        return 'ALL SQUARE';
       }
 
       function renderCreatorPickers() {
@@ -4780,6 +5140,24 @@
         document.getElementById('shop-modal').classList.add('hidden');
       });
 
+      // Login / menu / mode screens
+      document.getElementById('btn-login').addEventListener('click', () => {
+        loginAs(document.getElementById('login-name-input').value);
+      });
+      document.getElementById('login-name-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loginAs(e.target.value);
+      });
+      document.getElementById('btn-mode-single').addEventListener('click', () => { state.gameMode = 'single'; renderMode(); showScreen('mode'); });
+      document.getElementById('btn-mode-pvc').addEventListener('click', () => { state.gameMode = 'pvc'; renderMode(); showScreen('mode'); });
+      document.getElementById('btn-mode-pvp').addEventListener('click', () => { state.gameMode = 'pvp'; renderMode(); showScreen('mode'); });
+      document.getElementById('btn-menu-shop').addEventListener('click', openShopModal);
+      document.getElementById('btn-menu-golfer').addEventListener('click', () => { state.creatorReturn = 'menu'; openCreator(); });
+      document.getElementById('btn-menu-logout').addEventListener('click', () => { showScreen('login'); renderLogin(); });
+      document.getElementById('btn-mode-back').addEventListener('click', () => { showScreen('menu'); renderMenu(); });
+      document.getElementById('btn-format-match').addEventListener('click', () => { state.format = 'match'; showScreen('home'); renderHomeUI(); });
+      document.getElementById('btn-format-stroke').addEventListener('click', () => { state.format = 'stroke'; showScreen('home'); renderHomeUI(); });
+      document.getElementById('btn-home-menu').addEventListener('click', () => { showScreen('menu'); renderMenu(); });
+
       document.getElementById('golfer-name-input').addEventListener('input', (e) => {
         saveData.golfer.name = e.target.value.trim() || 'Golfer';
         persistSave();
@@ -4806,29 +5184,25 @@
       });
 
       document.getElementById('btn-creator-back').addEventListener('click', () => {
-        state.mode = 'home';
-        document.getElementById('creator-screen').classList.add('hidden');
-        document.getElementById('home-screen').classList.remove('hidden');
+        if (state.creatorReturn === 'menu') {
+          showScreen('menu');
+          renderMenu();
+        } else {
+          showScreen('login');
+          renderLogin();
+        }
       });
 
       document.getElementById('btn-tee-off').addEventListener('click', () => {
         saveData.golfer.name = document.getElementById('golfer-name-input').value.trim() || 'T. Glass';
         persistSave();
-        document.getElementById('creator-screen').classList.add('hidden');
-        document.getElementById('game-hud').classList.remove('hidden');
-        state.mode = 'play';
-        state.holeScores = [];
-        simulateRivalsForCourse(state.course);
-        rebuildGolferMesh();
-        setupHole(0);
-        setSwingUIState();
+        showScreen('menu');
+        renderMenu();
       });
 
       document.getElementById('btn-quit').addEventListener('click', () => {
-        state.mode = 'home';
-        document.getElementById('game-hud').classList.add('hidden');
-        document.getElementById('home-screen').classList.remove('hidden');
-        renderHomeUI();
+        showScreen('menu');
+        renderMenu();
       });
 
       document.getElementById('btn-flyover').addEventListener('click', () => {
@@ -4859,19 +5233,13 @@
 
       document.getElementById('btn-play-again').addEventListener('click', () => {
         document.getElementById('round-end-modal').classList.add('hidden');
-        state.mode = 'play';
-        state.holeScores = [];
-        simulateRivalsForCourse(state.course);
-        setupHole(0);
-        setSwingUIState();
+        startRound(state.course);
       });
 
       document.getElementById('btn-end-courses').addEventListener('click', () => {
         document.getElementById('round-end-modal').classList.add('hidden');
-        document.getElementById('game-hud').classList.add('hidden');
-        state.mode = 'home';
-        document.getElementById('home-screen').classList.remove('hidden');
-        renderHomeUI();
+        showScreen('menu');
+        renderMenu();
       });
 
       // Aim & Club controls
@@ -4950,7 +5318,8 @@
         state.ballPos.set(0, homeHole.teeBaseY + BALL_R, 0);
         placeGolferAtBall();
         aimGroup.visible = false;
-        renderHomeUI();
+        renderLogin();
+        showScreen('login');
       }
 
       initDefaultScene();
@@ -4992,7 +5361,7 @@
           }
         }
 
-        if (state.mode === 'home') {
+        if (state.mode === 'home' || state.mode === 'login' || state.mode === 'menu' || state.mode === 'mode') {
           state.homeAngle += dt * 0.14;
           const r = 54;
           camera.position.set(
