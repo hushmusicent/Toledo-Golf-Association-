@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.8</div>
+        <div class="build-tag">BUILD v2026.11.21.9</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.8</div>
+        <div class="build-tag">BUILD v2026.11.21.9</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1081,13 +1081,14 @@
           <button class="btn-secondary" id="btn-menu-golfer" style="flex:1;">Edit Golfer</button>
           <button class="btn-secondary" id="btn-menu-logout" style="flex:1;">Switch Player</button>
         </div>
+        <button class="btn-secondary" id="btn-menu-fullscreen" style="width:100%; margin-top:10px;">⛶ Fullscreen — rotate to landscape</button>
       </div>
     </div>
 
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.8</div>
+        <div class="build-tag">BUILD v2026.11.21.9</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1104,7 +1105,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.8</div>
+          <div class="build-tag">BUILD v2026.11.21.9</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -1232,6 +1233,7 @@
             <button class="hud-btn" id="btn-scorecard">Scorecard</button>
             <button class="hud-btn" id="btn-hud-shop">Shop / Skills</button>
             <button class="hud-btn" id="btn-quit">Courses</button>
+            <button class="hud-btn" id="btn-fullscreen">⛶ Fullscreen</button>
           </div>
           <div class="hud-tod-compact" id="hud-tod-picker">
             <button class="hud-tod-btn" data-tod="morning">Morning</button>
@@ -2756,7 +2758,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.8
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.9
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -5615,6 +5617,45 @@
       document.getElementById('btn-quit').addEventListener('click', () => {
         showScreen('menu');
         renderMenu();
+      });
+
+      // SCREEN ROTATION: the AI Studio preview sits in a portrait frame, so
+      // turning the phone does nothing there. This breaks the game out into
+      // real fullscreen and locks it to landscape (best effort); turning the
+      // phone then rotates the game. If the preview blocks fullscreen, the
+      // toast says to open the app in a new tab instead.
+      async function toggleFullscreenLandscape() {
+        try {
+          if (!document.fullscreenElement) {
+            const el = document.documentElement;
+            if (el.requestFullscreen) await el.requestFullscreen();
+            else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+            else throw new Error('fullscreen unavailable');
+            if (screen.orientation && screen.orientation.lock) {
+              try { await screen.orientation.lock('landscape'); } catch {}
+            }
+          } else {
+            if (document.exitFullscreen) await document.exitFullscreen();
+            if (screen.orientation && screen.orientation.unlock) {
+              try { screen.orientation.unlock(); } catch {}
+            }
+          }
+        } catch (e) {
+          showToast('Fullscreen is blocked in this preview — open the app in a new tab to rotate.', 4);
+        }
+      }
+      document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreenLandscape);
+      document.getElementById('btn-menu-fullscreen').addEventListener('click', toggleFullscreenLandscape);
+      document.addEventListener('fullscreenchange', () => {
+        const on = !!document.fullscreenElement;
+        const hudBtn = document.getElementById('btn-fullscreen');
+        if (hudBtn) hudBtn.textContent = on ? 'Exit Full' : '⛶ Fullscreen';
+        const menuBtn = document.getElementById('btn-menu-fullscreen');
+        if (menuBtn) menuBtn.textContent = on ? 'Exit fullscreen' : '⛶ Fullscreen — rotate to landscape';
+        // Fullscreen changes the viewport: resize the renderer to match.
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
       document.getElementById('btn-flyover').addEventListener('click', () => {
