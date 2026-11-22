@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.16</div>
+        <div class="build-tag">BUILD v2026.11.21.17</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.16</div>
+        <div class="build-tag">BUILD v2026.11.21.17</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1088,7 +1088,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.16</div>
+        <div class="build-tag">BUILD v2026.11.21.17</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1105,7 +1105,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.16</div>
+          <div class="build-tag">BUILD v2026.11.21.17</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2758,7 +2758,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.16
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.17
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -3167,6 +3167,18 @@
 
       let currentHoleData = null;
 
+      // =========================================================================
+      // 1b. REAL COURSE LAYOUTS (OpenStreetMap surveyed geometry, v2026.11.21.17)
+      // Per hole: pts = true centerline waypoints in hole-local yards
+      // (tee at 0,0; pin is the last point; scaled so the played length
+      // equals the published scorecard yardage), greenR = true green radius,
+      // bunkers = PCA ellipse fits of the real bunkers, waters = real ponds.
+      // Courses not listed here keep the generated layout in buildHoleData.
+      // =========================================================================
+      const COURSE_LAYOUTS = {
+        inverness: [{"pts": [[9.0, -251.1], [-0.0, -390.5]], "greenR": 13.2, "bunkers": [{"x": -14.6, "z": -261.0, "rx": 11.9, "rz": 4.9, "rot": 1.72}, {"x": 14.2, "z": -378.0, "rx": 7.3, "rz": 3.9, "rot": 2.04}], "waters": []}, {"pts": [[-26.1, -278.1], [-0.0, -431.6]], "greenR": 14.7, "bunkers": [{"x": -43.4, "z": -258.4, "rx": 6.4, "rz": 4.1, "rot": 1.52}, {"x": -14.4, "z": -300.0, "rx": 5.1, "rz": 3.8, "rot": 0.77}, {"x": 8.0, "z": -411.7, "rx": 9.7, "rz": 6.8, "rot": 2.6}, {"x": -17.8, "z": -418.7, "rx": 4.9, "rz": 3.2, "rot": 0.95}, {"x": -16.8, "z": -433.5, "rx": 4.8, "rz": 3.4, "rot": 1.15}], "waters": []}, {"pts": [[0.0, -201.0]], "greenR": 13.9, "bunkers": [{"x": 15.3, "z": -178.4, "rx": 4.7, "rz": 3.0, "rot": 1.93}, {"x": 11.6, "z": -194.1, "rx": 8.4, "rz": 4.2, "rot": 1.6}, {"x": -13.3, "z": -194.7, "rx": 12.2, "rz": 4.1, "rot": 1.38}], "waters": []}, {"pts": [[34.2, -269.1], [-0.0, -426.2]], "greenR": 13.3, "bunkers": [{"x": 51.6, "z": -281.0, "rx": 8.4, "rz": 5.6, "rot": 1.39}, {"x": -5.8, "z": -404.9, "rx": 4.9, "rz": 3.9, "rot": 2.27}, {"x": 15.8, "z": -423.2, "rx": 10.9, "rz": 4.6, "rot": 1.35}, {"x": 3.0, "z": -442.2, "rx": 8.2, "rz": 4.0, "rot": 0.4}], "waters": []}, {"pts": [[0.0, -166.0]], "greenR": 13.3, "bunkers": [{"x": 9.5, "z": -144.0, "rx": 12.7, "rz": 6.4, "rot": 2.73}, {"x": 18.3, "z": -164.1, "rx": 7.5, "rz": 5.1, "rot": 1.06}, {"x": -15.1, "z": -173.2, "rx": 5.1, "rz": 4.6, "rot": 0.93}, {"x": -17.3, "z": -157.6, "rx": 9.0, "rz": 5.9, "rot": 1.08}], "waters": []}, {"pts": [[24.4, -245.2], [0.0, -426.1]], "greenR": 14.5, "bunkers": [{"x": 16.6, "z": -418.0, "rx": 9.6, "rz": 4.0, "rot": 1.27}, {"x": 30.3, "z": -264.5, "rx": 5.9, "rz": 4.2, "rot": 1.14}, {"x": 41.4, "z": -250.3, "rx": 5.4, "rz": 4.1, "rot": 1.49}, {"x": 0.8, "z": -233.8, "rx": 15.0, "rz": 7.9, "rot": 1.18}], "waters": []}, {"pts": [[-4.7, -223.6], [-0.0, -433.9]], "greenR": 16.4, "bunkers": [], "waters": []}, {"pts": [[102.6, -246.8], [0.0, -518.8]], "greenR": 13.0, "bunkers": [{"x": 79.6, "z": -253.2, "rx": 15.8, "rz": 6.6, "rot": 2.0}, {"x": 111.4, "z": -289.7, "rx": 7.3, "rz": 5.0, "rot": 0.79}, {"x": 42.6, "z": -429.8, "rx": 6.2, "rz": 4.4, "rot": 0.01}, {"x": 1.7, "z": -443.7, "rx": 5.4, "rz": 3.9, "rot": 1.39}, {"x": 24.6, "z": -469.4, "rx": 6.7, "rz": 5.4, "rot": 2.93}, {"x": -4.9, "z": -485.5, "rx": 10.8, "rz": 4.7, "rot": 0.45}, {"x": 12.4, "z": -504.3, "rx": 3.8, "rz": 2.6, "rot": 1.32}, {"x": 17.3, "z": -514.3, "rx": 8.5, "rz": 3.8, "rot": 1.38}, {"x": 5.3, "z": -533.8, "rx": 3.2, "rz": 2.5, "rot": 1.39}], "waters": []}, {"pts": [[-37.5, -239.9], [0.0, -358.3]], "greenR": 12.0, "bunkers": [{"x": -2.8, "z": 15.8, "rx": 7.4, "rz": 3.8, "rot": 0.09}, {"x": 30.8, "z": -92.4, "rx": 4.8, "rz": 2.5, "rot": 2.2}, {"x": 13.3, "z": -101.4, "rx": 3.2, "rz": 2.7, "rot": 1.03}, {"x": 16.8, "z": -111.8, "rx": 4.1, "rz": 3.3, "rot": 2.93}, {"x": -14.1, "z": -345.6, "rx": 5.4, "rz": 4.1, "rot": 2.62}, {"x": 2.3, "z": -329.3, "rx": 5.8, "rz": 4.5, "rot": 2.69}, {"x": 10.6, "z": -353.2, "rx": 12.4, "rz": 4.3, "rot": 1.87}, {"x": -13.5, "z": -250.3, "rx": 10.1, "rz": 4.6, "rot": 1.14}, {"x": -9.7, "z": -219.5, "rx": 9.4, "rz": 5.7, "rot": 1.33}, {"x": -46.8, "z": -274.0, "rx": 9.1, "rz": 4.8, "rot": 0.8}, {"x": -30.0, "z": -286.9, "rx": 6.1, "rz": 4.0, "rot": 1.47}], "waters": []}, {"pts": [[-4.7, -57.5], [-17.6, -215.3], [0.0, -381.4]], "greenR": 11.6, "bunkers": [{"x": 9.9, "z": -243.2, "rx": 9.6, "rz": 5.8, "rot": 2.06}, {"x": 16.5, "z": -198.9, "rx": 11.1, "rz": 8.3, "rot": 2.88}, {"x": 19.7, "z": -216.9, "rx": 16.9, "rz": 8.4, "rot": 3.12}, {"x": -35.3, "z": -246.1, "rx": 15.5, "rz": 5.0, "rot": 1.79}], "waters": []}, {"pts": [[-13.2, -265.4], [0.0, -371.9]], "greenR": 12.0, "bunkers": [{"x": 10.6, "z": 13.4, "rx": 12.1, "rz": 6.4, "rot": 1.34}, {"x": 19.1, "z": -323.6, "rx": 25.2, "rz": 10.3, "rot": 0.63}, {"x": 19.5, "z": -353.2, "rx": 21.2, "rz": 8.0, "rot": 0.99}, {"x": 4.3, "z": -274.1, "rx": 7.9, "rz": 7.4, "rot": 0.15}, {"x": -23.2, "z": -291.9, "rx": 10.0, "rz": 5.5, "rot": 1.85}, {"x": -15.6, "z": -370.1, "rx": 8.9, "rz": 4.2, "rot": 1.9}], "waters": []}, {"pts": [[0.0, -195.0]], "greenR": 12.7, "bunkers": [{"x": 13.0, "z": -197.1, "rx": 3.8, "rz": 2.5, "rot": 1.85}, {"x": 10.8, "z": -182.5, "rx": 8.6, "rz": 3.9, "rot": 2.1}, {"x": -3.9, "z": -168.9, "rx": 8.5, "rz": 5.2, "rot": 0.37}, {"x": -14.5, "z": -193.2, "rx": 15.2, "rz": 5.3, "rot": 1.68}], "waters": []}, {"pts": [[1.0, -269.5], [0.0, -536.0]], "greenR": 11.6, "bunkers": [{"x": 5.5, "z": -552.7, "rx": 5.7, "rz": 2.8, "rot": 3.06}, {"x": 17.5, "z": -527.5, "rx": 12.0, "rz": 7.5, "rot": 1.19}, {"x": 26.7, "z": -507.9, "rx": 5.7, "rz": 4.4, "rot": 0.07}, {"x": -6.7, "z": -492.5, "rx": 16.1, "rz": 7.0, "rot": 1.42}, {"x": -5.5, "z": -342.6, "rx": 6.9, "rz": 3.7, "rot": 1.63}, {"x": 26.3, "z": -272.9, "rx": 23.0, "rz": 5.9, "rot": 1.49}, {"x": -14.4, "z": -525.0, "rx": 10.6, "rz": 4.7, "rot": 1.23}], "waters": []}, {"pts": [[-15.0, -259.8], [-0.0, -417.9]], "greenR": 12.2, "bunkers": [{"x": -23.0, "z": -304.6, "rx": 6.4, "rz": 4.4, "rot": 0.28}, {"x": -15.4, "z": -414.3, "rx": 11.0, "rz": 5.3, "rot": 1.84}, {"x": 13.1, "z": -403.8, "rx": 10.0, "rz": 6.0, "rot": 1.56}, {"x": -41.9, "z": -243.0, "rx": 27.8, "rz": 8.7, "rot": 1.96}], "waters": []}, {"pts": [[1.4, -268.6], [0.0, -440.0]], "greenR": 13.0, "bunkers": [{"x": 17.6, "z": -288.7, "rx": 6.8, "rz": 3.3, "rot": 1.49}, {"x": 20.0, "z": -270.4, "rx": 5.4, "rz": 3.7, "rot": 1.22}, {"x": -4.2, "z": -417.8, "rx": 5.5, "rz": 3.4, "rot": 1.67}, {"x": 19.3, "z": -416.6, "rx": 7.1, "rz": 4.4, "rot": 1.4}, {"x": 13.6, "z": -446.6, "rx": 10.1, "rz": 3.8, "rot": 1.24}], "waters": []}, {"pts": [[-13.4, -253.6], [0.0, -403.1]], "greenR": 14.5, "bunkers": [{"x": -17.2, "z": -391.9, "rx": 12.6, "rz": 6.8, "rot": 1.26}, {"x": 15.3, "z": -375.0, "rx": 7.3, "rz": 5.0, "rot": 1.96}, {"x": 6.8, "z": -365.5, "rx": 4.7, "rz": 3.7, "rot": 0.87}, {"x": -20.8, "z": -296.5, "rx": 12.3, "rz": 5.7, "rot": 2.37}, {"x": 3.3, "z": -261.3, "rx": 6.1, "rz": 4.6, "rot": 1.43}, {"x": -34.7, "z": -259.9, "rx": 8.5, "rz": 6.0, "rot": 0.37}], "waters": []}, {"pts": [[66.2, -241.2], [0.0, -398.7]], "greenR": 11.8, "bunkers": [{"x": 21.7, "z": -390.2, "rx": 5.5, "rz": 4.0, "rot": 0.17}, {"x": -1.0, "z": -376.9, "rx": 4.6, "rz": 3.7, "rot": 1.11}, {"x": -5.8, "z": -384.4, "rx": 5.2, "rz": 2.9, "rot": 2.34}, {"x": -11.7, "z": -392.2, "rx": 6.1, "rz": 3.0, "rot": 1.32}, {"x": 45.2, "z": -234.9, "rx": 10.7, "rz": 6.4, "rot": 2.96}], "waters": []}, {"pts": [[-5.0, -217.8], [0.0, -332.8]], "greenR": 12.6, "bunkers": [{"x": -11.1, "z": -346.7, "rx": 4.0, "rz": 2.5, "rot": 2.61}, {"x": -12.3, "z": -324.4, "rx": 8.8, "rz": 3.5, "rot": 1.07}, {"x": 1.2, "z": -311.0, "rx": 5.8, "rz": 4.5, "rot": 2.16}, {"x": 11.5, "z": -316.3, "rx": 6.0, "rz": 4.1, "rot": 1.8}, {"x": -5.9, "z": -274.5, "rx": 8.3, "rz": 4.6, "rot": 1.62}, {"x": -9.8, "z": -248.1, "rx": 7.2, "rz": 5.1, "rot": 2.39}, {"x": 22.5, "z": -292.4, "rx": 9.0, "rz": 5.2, "rot": 0.43}, {"x": 32.2, "z": -250.1, "rx": 5.5, "rz": 3.5, "rot": 0.35}, {"x": 30.3, "z": -240.5, "rx": 6.0, "rz": 3.2, "rot": 2.91}, {"x": 30.3, "z": -233.3, "rx": 3.9, "rz": 2.5, "rot": 2.69}], "waters": []}],
+      };
+
       function buildHoleData(course, holeIdx) {
         const par = course.pars[holeIdx];
         const totalYards = course.yards[holeIdx];
@@ -3185,14 +3197,14 @@
         const L2 = totalYards - L1;
 
         const tee = new THREE.Vector2(0, 0);
-        const bend = new THREE.Vector2(0, -L1);
-        const pin = new THREE.Vector2(
+        let bend = new THREE.Vector2(0, -L1);
+        let pin = new THREE.Vector2(
           Math.sin(bendAngle) * L2,
           bend.y - Math.cos(bendAngle) * L2
         );
 
         // Smooth spline points along Tee -> Bend -> Pin
-        const curve = new THREE.QuadraticBezierCurve(
+        let curve = new THREE.QuadraticBezierCurve(
           new THREE.Vector2(tee.x, tee.y),
           new THREE.Vector2(bend.x, bend.y),
           new THREE.Vector2(pin.x, pin.y)
@@ -3212,11 +3224,11 @@
 
         // Green & Tee dimensions
         const teeRadius = 7.5;
-        const greenRadius = par === 3 ? 13.5 : 14.5;
+        let greenRadius = par === 3 ? 13.5 : 14.5;
         const fairwayWidth = par === 3 ? 11 : par === 4 ? 17 : 19;
 
         // Bunkers
-        const bunkers = [];
+        let bunkers = [];
         const greensideCount = 2 + Math.floor(rand() * 2);
         for (let b = 0; b < greensideCount; b++) {
           const ang = (b * 2.1 + rand() * 1.1) - 1.2;
@@ -3243,7 +3255,7 @@
         }
 
         // Water hazards (more frequent on Toledo CC / Detwiler)
-        const waters = [];
+        let waters = [];
         if (rand() < course.palette.waterBias) {
           if (par === 3) {
             const side = rand() > 0.5 ? 1 : -1;
@@ -3267,6 +3279,28 @@
         }
 
         const waterLevel = -1.6;
+
+        // REAL LAYOUT (OpenStreetMap, BUILD v2026.11.21.17): if this course+hole
+        // has surveyed geometry, use the true centerline, pin, green size and
+        // hazards instead of the generated ones. The spline passes through the
+        // real waypoints, so the fairway ribbon, fans, fence, trees, aim and
+        // minimap all follow the real hole. Elevation stays modeled.
+        const realLayout = (typeof COURSE_LAYOUTS !== 'undefined' && COURSE_LAYOUTS[course.id])
+          ? COURSE_LAYOUTS[course.id][holeIdx] : null;
+        if (realLayout) {
+          const realPts = [new THREE.Vector2(0, 0)].concat(
+            realLayout.pts.map((p) => new THREE.Vector2(p[0], p[1])));
+          curve = new THREE.SplineCurve(realPts);
+          centerline.length = 0;
+          for (let i = 0; i <= steps; i++) centerline.push(curve.getPoint(i / steps));
+          const lastPt = realLayout.pts[realLayout.pts.length - 1];
+          pin = new THREE.Vector2(lastPt[0], lastPt[1]);
+          bend = new THREE.Vector2(realLayout.pts[0][0], realLayout.pts[0][1]);
+          bendAngle = 0;
+          if (realLayout.greenR) greenRadius = realLayout.greenR;
+          bunkers = realLayout.bunkers.map((b) => ({ x: b.x, z: b.z, rx: b.rx, rz: b.rz, rot: b.rot }));
+          waters = realLayout.waters.map((w) => ({ x: w.x, z: w.z, rx: w.rx, rz: w.rz }));
+        }
 
         function distToCenterline(x, z) {
           let bestD2 = Infinity;
