@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.15</div>
+        <div class="build-tag">BUILD v2026.11.21.16</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.15</div>
+        <div class="build-tag">BUILD v2026.11.21.16</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1088,7 +1088,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.15</div>
+        <div class="build-tag">BUILD v2026.11.21.16</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1105,7 +1105,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.15</div>
+          <div class="build-tag">BUILD v2026.11.21.16</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2758,7 +2758,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.15
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.16
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -3548,16 +3548,38 @@
         terrainMesh.receiveShadow = true;
         worldGroup.add(terrainMesh);
 
-        // Grass tufts on the rough: instanced cones in varied dark
-        // greens, seeded per hole. Only where the surface is Rough (or
-        // OB past the fence) — never on the fairway, green, tee,
-        // bunkers or water.
+        // GRASS v2: the old tufts were solid dark cones, so they read
+        // as black thorns. Each tuft is now 3 thin blades splayed
+        // outward (merged open-ended cones, flattened), in lighter
+        // sunlit mid-greens — blades, not spikes. Only where the
+        // surface is Rough (or OB past the fence) — never on the
+        // fairway, green, tee, bunkers or water.
         {
           const tuftRand = mulberry32(hole.seed + 777);
-          const tuftGeo = new THREE.ConeGeometry(0.32, 0.95, 4);
+          const mergeGeos = (parts) => {
+            const pos = [], norm = [];
+            for (const g of parts) {
+              const ng = g.toNonIndexed();
+              pos.push(...ng.attributes.position.array);
+              norm.push(...ng.attributes.normal.array);
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+            return geo;
+          };
+          const blades = [0, 2.094, 4.188].map((a) => {
+            const b = new THREE.ConeGeometry(0.10, 0.8, 4, 1, true);
+            b.scale(1, 1, 0.35);
+            b.rotateZ(0.25);
+            b.rotateY(a);
+            b.translate(0, 0.32, 0);
+            return b;
+          });
+          const tuftGeo = mergeGeos(blades);
           const tuftMat = new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true });
-          const tuftColors = [0x1d4d28, 0x256b32, 0x17401f, 0x2a7a35].map((c) => new THREE.Color(c));
-          const TUFTS = 3000;
+          const tuftColors = [0x3f8f46, 0x57a85a, 0x2f7a38, 0x6db36a].map((c) => new THREE.Color(c));
+          const TUFTS = 4000;
           const tuftMesh = new THREE.InstancedMesh(tuftGeo, tuftMat, TUFTS);
           const _tuftM4 = new THREE.Matrix4();
           const _tuftQ = new THREE.Quaternion();
@@ -3579,7 +3601,7 @@
             const s = 0.7 + tuftRand() * 0.8;
             _tuftQ.setFromAxisAngle(_tuftUp, tuftRand() * Math.PI * 2);
             _tuftS.set(s, s * (0.8 + tuftRand() * 0.5), s);
-            _tuftP.set(tx, gy + 0.4 * _tuftS.y, tz);
+            _tuftP.set(tx, gy + 0.08 * _tuftS.y, tz);
             _tuftM4.compose(_tuftP, _tuftQ, _tuftS);
             tuftMesh.setMatrixAt(placed, _tuftM4);
             tuftMesh.setColorAt(placed, tuftColors[Math.floor(tuftRand() * tuftColors.length)]);
@@ -3725,6 +3747,39 @@
         greenMesh.receiveShadow = true;
         worldGroup.add(greenMesh);
 
+        // Putt surface grid: contour-following lines on the green so the
+        // break reads at a glance (the break dots only show the putt
+        // line). Lines every 2.2 yd, clipped to the green circle,
+        // sampling groundHeightAt so they bend over the slope.
+        {
+          const gridPts = [];
+          const step = 2.2;
+          const R = hole.greenRadius;
+          const pushLine = (pts) => {
+            for (let i = 0; i + 1 < pts.length; i++) gridPts.push(pts[i], pts[i + 1]);
+          };
+          for (let gx = -R; gx <= R; gx += step) {
+            const half = Math.sqrt(Math.max(0, R * R - gx * gx));
+            const pts = [];
+            for (let gz = -half; gz <= half; gz += 1) {
+              pts.push(new THREE.Vector3(hole.pin.x + gx, hole.groundHeightAt(hole.pin.x + gx, hole.pin.y + gz) + 0.16, hole.pin.y + gz));
+            }
+            pushLine(pts);
+          }
+          for (let gz = -R; gz <= R; gz += step) {
+            const half = Math.sqrt(Math.max(0, R * R - gz * gz));
+            const pts = [];
+            for (let gx = -half; gx <= half; gx += 1) {
+              pts.push(new THREE.Vector3(hole.pin.x + gx, hole.groundHeightAt(hole.pin.x + gx, hole.pin.y + gz) + 0.16, hole.pin.y + gz));
+            }
+            pushLine(pts);
+          }
+          const gridGeo = new THREE.BufferGeometry().setFromPoints(gridPts);
+          const grid = new THREE.LineSegments(gridGeo, new THREE.LineBasicMaterial({ color: 0x1f6b30, transparent: true, opacity: 0.45 }));
+          grid.userData.greenGrid = true;
+          worldGroup.add(grid);
+        }
+
         // 5. Cup & Flagstick
         const cupY = hole.groundHeightAt(hole.pin.x, hole.pin.y) + 0.11;
         holeCupPos.set(hole.pin.x, cupY, hole.pin.y);
@@ -3746,13 +3801,21 @@
         pole.castShadow = true;
         flagGroup.add(pole);
 
-        const pennantGeo = new THREE.ConeGeometry(0.62, 1.4, 3);
-        pennantGeo.rotateZ(-Math.PI / 2);
+        // FLAG: a flat triangular pennant on the pin — the old 3-sided
+        // cone read as a big red diamond. Hoist on the pole, fly tip
+        // out; the flutter sway pivots it on the pole.
+        const pennantGeo = new THREE.BufferGeometry();
+        pennantGeo.setAttribute(
+          'position',
+          new THREE.Float32BufferAttribute([0, 0.42, 0, 0, 0, 0, 0.78, 0.21, 0], 3)
+        );
+        pennantGeo.computeVertexNormals();
         flagPennantMesh = new THREE.Mesh(
           pennantGeo,
-          new THREE.MeshStandardMaterial({ color: 0xe63939, roughness: 0.6, flatShading: true })
+          new THREE.MeshStandardMaterial({ color: 0xe63939, roughness: 0.6, side: THREE.DoubleSide })
         );
-        flagPennantMesh.position.set(0.65, 3.95, 0);
+        flagPennantMesh.userData.flag = true;
+        flagPennantMesh.position.set(0, 3.95, 0);
         flagPennantMesh.castShadow = true;
         flagGroup.add(flagPennantMesh);
         worldGroup.add(flagGroup);
