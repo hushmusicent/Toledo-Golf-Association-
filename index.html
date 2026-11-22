@@ -3438,12 +3438,421 @@
       // =========================================================================
       let flagPennantMesh = null;
       let holeCupPos = new THREE.Vector3();
+      const animatedFans = [];
+      const grassWindUniforms = {
+        uTime: { value: 0 },
+        uWindDir: { value: new THREE.Vector2(1, 0) },
+        uWindAmp: { value: 0.05 },
+      };
+
+      let _turfTexCache = null;
+      function getTurfTextures() {
+        if (_turfTexCache) return _turfTexCache;
+        const makeTex = (isRough) => {
+          const size = 512;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          const rand = mulberry32(isRough ? 90421 : 31907);
+
+          // Neutral base so multiplying by course palette colors preserves each course's grass hue
+          ctx.fillStyle = isRough ? '#99aa88' : '#d2dfc2';
+          ctx.fillRect(0, 0, size, size);
+
+          // Organic turf mottling
+          for (let i = 0; i < (isRough ? 260 : 180); i++) {
+            const x = rand() * size;
+            const y = rand() * size;
+            const r = (isRough ? 10 : 14) + rand() * 28;
+            const shade = isRough ? Math.floor(125 + rand() * 55) : Math.floor(195 + rand() * 38);
+            const gShade = Math.min(255, Math.floor(shade * 1.12));
+            const bShade = Math.floor(shade * 0.85);
+            const col = `rgba(${shade},${gShade},${bShade},0.22)`;
+            for (const ox of [-size, 0, size]) {
+              for (const oy of [-size, 0, size]) {
+                if (x + ox + r < 0 || x + ox - r > size || y + oy + r < 0 || y + oy - r > size) continue;
+                ctx.fillStyle = col;
+                ctx.beginPath();
+                ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            }
+          }
+
+          // Thousands of crisp individual grass blade strokes wrapped seamlessly
+          const blades = isRough ? 9500 : 4800;
+          ctx.lineCap = 'round';
+          for (let i = 0; i < blades; i++) {
+            const x = rand() * size;
+            const y = rand() * size;
+            const len = isRough ? (6 + rand() * 11) : (3 + rand() * 5);
+            const ang = isRough ? (rand() * Math.PI * 2) : (-Math.PI * 0.5 + (rand() - 0.5) * 0.55);
+            const dx = Math.cos(ang) * len;
+            const dy = Math.sin(ang) * len;
+            const cx = x + dx * 0.5 + (rand() - 0.5) * (isRough ? 4 : 1.5);
+            const cy = y + dy * 0.5 - (isRough ? 2 : 0.8);
+            const lum = isRough ? (115 + rand() * 115) : (190 + rand() * 55);
+            const rC = Math.min(255, Math.floor(lum * (rand() > 0.85 ? 1.04 : 0.88)));
+            const gC = Math.min(255, Math.floor(lum * 1.08));
+            const bC = Math.min(255, Math.floor(lum * 0.72));
+            ctx.strokeStyle = `rgba(${rC},${gC},${bC},${isRough ? 0.72 : 0.45})`;
+            ctx.lineWidth = isRough ? (0.9 + rand() * 1.3) : (0.8 + rand() * 0.9);
+            for (const ox of [-size, 0, size]) {
+              for (const oy of [-size, 0, size]) {
+                if (x + ox < -18 || x + ox > size + 18 || y + oy < -18 || y + oy > size + 18) continue;
+                ctx.beginPath();
+                ctx.moveTo(x + ox, y + oy);
+                ctx.quadraticCurveTo(cx + ox, cy + oy, x + ox + dx, y + oy + dy);
+                ctx.stroke();
+              }
+            }
+          }
+
+          const tex = new THREE.CanvasTexture(canvas);
+          tex.wrapS = THREE.RepeatWrapping;
+          tex.wrapT = THREE.RepeatWrapping;
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+          tex.needsUpdate = true;
+          return tex;
+        };
+        _turfTexCache = { rough: makeTex(true), fairway: makeTex(false) };
+        return _turfTexCache;
+      }
+
+      let _grassClumpGeo = null;
+      function getRoughGrassClumpGeo() {
+        if (_grassClumpGeo) return _grassClumpGeo;
+        // 7 slender curved tapered blades per clump, ~0.26..0.40 tall with root-to-tip shading
+        const bladeRand = mulberry32(55109);
+        const pos = [], norm = [], col = [];
+        const addTri = (ax, ay, az, ac, bx, by, bz, bc, cx, cy, cz, cc, nx, ny, nz) => {
+          pos.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+          norm.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
+          col.push(...ac, ...bc, ...cc);
+        };
+        const rootC = [0.42, 0.50, 0.36];
+        const mid1C = [0.68, 0.78, 0.62];
+        const mid2C = [0.92, 1.00, 0.84];
+        const tipC = [1.18, 1.24, 0.96];
+
+        const BLADES = 7;
+        for (let b = 0; b < BLADES; b++) {
+          const ang = (b / BLADES) * Math.PI * 2 + (bladeRand() - 0.5) * 0.65;
+          const dist = b === 0 ? 0.015 : (0.04 + bladeRand() * 0.11);
+          const bx0 = Math.cos(ang) * dist;
+          const bz0 = Math.sin(ang) * dist;
+          const h = 0.25 + bladeRand() * 0.16;
+          const w = 0.024 + bladeRand() * 0.011;
+          const lean = 0.09 + bladeRand() * 0.15;
+          const yaw = ang + (bladeRand() - 0.5) * 0.8;
+          const dirX = Math.cos(yaw), dirZ = Math.sin(yaw);
+          const sideX = -dirZ, sideZ = dirX;
+          const nx = dirX * 0.25, ny = 0.94, nz = dirZ * 0.25;
+
+          const p0L = [bx0 - sideX * w, 0, bz0 - sideZ * w];
+          const p0R = [bx0 + sideX * w, 0, bz0 + sideZ * w];
+          const p1L = [bx0 + dirX * lean * 0.18 - sideX * w * 0.78, h * 0.36, bz0 + dirZ * lean * 0.18 - sideZ * w * 0.78];
+          const p1R = [bx0 + dirX * lean * 0.18 + sideX * w * 0.78, h * 0.36, bz0 + dirZ * lean * 0.18 + sideZ * w * 0.78];
+          const p2L = [bx0 + dirX * lean * 0.55 - sideX * w * 0.44, h * 0.72, bz0 + dirZ * lean * 0.55 - sideZ * w * 0.44];
+          const p2R = [bx0 + dirX * lean * 0.55 + sideX * w * 0.44, h * 0.72, bz0 + dirZ * lean * 0.55 + sideZ * w * 0.44];
+          const p3 = [bx0 + dirX * lean, h, bz0 + dirZ * lean];
+
+          addTri(...p0L, rootC, ...p0R, rootC, ...p1R, mid1C, nx, ny, nz);
+          addTri(...p0L, rootC, ...p1R, mid1C, ...p1L, mid1C, nx, ny, nz);
+          addTri(...p1L, mid1C, ...p1R, mid1C, ...p2R, mid2C, nx, ny, nz);
+          addTri(...p1L, mid1C, ...p2R, mid2C, ...p2L, mid2C, nx, ny, nz);
+          addTri(...p2L, mid2C, ...p2R, mid2C, ...p3, tipC, nx, ny, nz);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+        _grassClumpGeo = geo;
+        return geo;
+      }
+
+      let _spectatorAssets = null;
+      function getSpectatorAssets() {
+        if (_spectatorAssets) return _spectatorAssets;
+        const torsoProf = [
+          new THREE.Vector2(0.145, 0.0),
+          new THREE.Vector2(0.158, 0.14),
+          new THREE.Vector2(0.175, 0.30),
+          new THREE.Vector2(0.168, 0.42),
+          new THREE.Vector2(0.095, 0.48),
+          new THREE.Vector2(0.062, 0.50),
+        ];
+        const geos = {
+          sole: new THREE.BoxGeometry(0.105, 0.024, 0.24),
+          shoe: new THREE.SphereGeometry(0.056, 10, 8),
+          shin: new THREE.CylinderGeometry(0.060, 0.047, 0.42, 10),
+          thigh: new THREE.CylinderGeometry(0.078, 0.061, 0.42, 10),
+          pelvis: new THREE.CylinderGeometry(0.148, 0.156, 0.16, 12),
+          torso: new THREE.LatheGeometry(torsoProf, 14),
+          yoke: new THREE.CapsuleGeometry(0.068, 0.27, 6, 10),
+          collar: new THREE.CylinderGeometry(0.078, 0.096, 0.05, 10),
+          neck: new THREE.CylinderGeometry(0.046, 0.058, 0.11, 10),
+          cranium: new THREE.SphereGeometry(0.112, 14, 12),
+          jaw: new THREE.SphereGeometry(0.082, 12, 10),
+          ear: new THREE.SphereGeometry(0.020, 8, 6),
+          eye: new THREE.SphereGeometry(0.013, 8, 6),
+          nose: new THREE.ConeGeometry(0.015, 0.042, 8),
+          shades: new THREE.BoxGeometry(0.13, 0.036, 0.025),
+          hairCap: new THREE.SphereGeometry(0.118, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.58),
+          hairFull: new THREE.SphereGeometry(0.132, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.65),
+          ponytail: new THREE.CapsuleGeometry(0.026, 0.12, 4, 8),
+          capDome: new THREE.SphereGeometry(0.122, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.56),
+          capBrim: new THREE.CylinderGeometry(0.092, 0.092, 0.014, 12),
+          visorBand: new THREE.CylinderGeometry(0.120, 0.120, 0.045, 12, 1, true),
+          sunHatBrim: new THREE.CylinderGeometry(0.22, 0.23, 0.014, 16),
+          upperArm: new THREE.CylinderGeometry(0.046, 0.056, 0.26, 10),
+          forearm: new THREE.CylinderGeometry(0.033, 0.042, 0.24, 10),
+          hand: new THREE.SphereGeometry(0.036, 8, 8),
+          cup: new THREE.CylinderGeometry(0.034, 0.024, 0.10, 8),
+        };
+        const shirtColors = [0xc8102e, 0x1d4ed8, 0xeab308, 0x15803d, 0x6d28d9, 0xea580c, 0xf1f5f9, 0x0f766e, 0xbe185d, 0x334155];
+        const pantColors = [0xd6cba8, 0x1e293b, 0x292524, 0x3f4a3c, 0x475569, 0x1f3a5f];
+        const hairColors = [0x17120e, 0x3b2618, 0x6b4423, 0xb88b4a, 0x8b8f94];
+        const hatColors = [0xc8102e, 0xf8fafc, 0x1e3a8a, 0x14532d, 0x18181b, 0xd97706, 0x0284c7];
+        const mats = {
+          shirts: shirtColors.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.78, flatShading: false })),
+          pants: pantColors.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.86, flatShading: false })),
+          skins: SKIN_TONES.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.62, flatShading: false })),
+          hairs: hairColors.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.88, flatShading: false })),
+          hats: hatColors.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.70, flatShading: false })),
+          shoe: new THREE.MeshStandardMaterial({ color: 0x1b1d21, roughness: 0.65, flatShading: false }),
+          sole: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.75, flatShading: false }),
+          dark: new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.4, flatShading: false }),
+          cup: new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.45, flatShading: false }),
+        };
+        _spectatorAssets = { geos, mats };
+        return _spectatorAssets;
+      }
+
+      function createSpectatorMesh(rand) {
+        const { geos, mats } = getSpectatorAssets();
+        const g = new THREE.Group();
+
+        const shirtMat = mats.shirts[Math.floor(rand() * mats.shirts.length)];
+        const pantMat = mats.pants[Math.floor(rand() * mats.pants.length)];
+        const skinMat = mats.skins[Math.floor(rand() * mats.skins.length)];
+        const hairMat = mats.hairs[Math.floor(rand() * mats.hairs.length)];
+        const hatMat = mats.hats[Math.floor(rand() * mats.hats.length)];
+        const longSleeve = rand() > 0.58;
+
+        // Feet & Legs (grounded at y = 0.0)
+        [-0.095, 0.095].forEach((lx) => {
+          const sole = new THREE.Mesh(geos.sole, mats.sole);
+          sole.position.set(lx, 0.012, 0.03);
+          g.add(sole);
+
+          const shoe = new THREE.Mesh(geos.shoe, mats.shoe);
+          shoe.position.set(lx, 0.048, 0.03);
+          shoe.scale.set(0.95, 0.65, 2.0);
+          g.add(shoe);
+
+          const shin = new THREE.Mesh(geos.shin, pantMat);
+          shin.position.set(lx, 0.26, 0);
+          shin.castShadow = true;
+          g.add(shin);
+
+          const thigh = new THREE.Mesh(geos.thigh, pantMat);
+          thigh.position.set(lx, 0.67, 0);
+          thigh.castShadow = true;
+          g.add(thigh);
+        });
+
+        // Pelvis & Belt
+        const pelvis = new THREE.Mesh(geos.pelvis, pantMat);
+        pelvis.position.set(0, 0.90, 0);
+        pelvis.scale.set(1.10, 1, 0.78);
+        pelvis.castShadow = true;
+        g.add(pelvis);
+
+        // Torso & Shoulders
+        const torso = new THREE.Mesh(geos.torso, shirtMat);
+        torso.position.set(0, 0.97, 0);
+        torso.scale.set(1.12, 1, 0.75);
+        torso.castShadow = true;
+        g.add(torso);
+
+        const yoke = new THREE.Mesh(geos.yoke, shirtMat);
+        yoke.position.set(0, 1.38, 0);
+        yoke.rotation.z = Math.PI / 2;
+        yoke.scale.set(1, 1, 0.88);
+        yoke.castShadow = true;
+        g.add(yoke);
+
+        const collar = new THREE.Mesh(geos.collar, shirtMat);
+        collar.position.set(0, 1.47, 0);
+        g.add(collar);
+
+        // Neck & Head Group (rotates slightly for crowd life)
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 1.48, 0);
+        g.add(headGroup);
+
+        const neck = new THREE.Mesh(geos.neck, skinMat);
+        neck.position.set(0, 0.055, 0);
+        headGroup.add(neck);
+
+        const cranium = new THREE.Mesh(geos.cranium, skinMat);
+        cranium.position.set(0, 0.195, 0);
+        cranium.scale.set(0.92, 1.04, 1.0);
+        cranium.castShadow = true;
+        headGroup.add(cranium);
+
+        const jaw = new THREE.Mesh(geos.jaw, skinMat);
+        jaw.position.set(0, 0.145, 0.02);
+        jaw.scale.set(0.86, 0.88, 0.92);
+        headGroup.add(jaw);
+
+        [-0.102, 0.102].forEach((ex) => {
+          const ear = new THREE.Mesh(geos.ear, skinMat);
+          ear.position.set(ex, 0.185, -0.004);
+          ear.scale.set(0.55, 1.15, 0.85);
+          headGroup.add(ear);
+        });
+
+        // Eyes / Sunglasses & Nose
+        if (rand() > 0.58) {
+          const shades = new THREE.Mesh(geos.shades, mats.dark);
+          shades.position.set(0, 0.205, 0.105);
+          headGroup.add(shades);
+        } else {
+          [-0.038, 0.038].forEach((ex) => {
+            const eye = new THREE.Mesh(geos.eye, mats.dark);
+            eye.position.set(ex, 0.205, 0.102);
+            headGroup.add(eye);
+          });
+        }
+        const nose = new THREE.Mesh(geos.nose, skinMat);
+        nose.position.set(0, 0.182, 0.112);
+        nose.rotation.x = Math.PI / 2;
+        headGroup.add(nose);
+
+        // Hair & Headwear
+        const hairType = rand();
+        const hatType = rand();
+        if (hairType < 0.28) {
+          const h = new THREE.Mesh(geos.hairCap, hairMat);
+          h.position.set(0, 0.205, -0.01);
+          headGroup.add(h);
+          const pt = new THREE.Mesh(geos.ponytail, hairMat);
+          pt.position.set(0, 0.155, -0.13);
+          pt.rotation.x = 0.35;
+          headGroup.add(pt);
+        } else if (hairType < 0.65) {
+          const h = new THREE.Mesh(geos.hairFull, hairMat);
+          h.position.set(0, 0.205, -0.012);
+          headGroup.add(h);
+        } else {
+          const h = new THREE.Mesh(geos.hairCap, hairMat);
+          h.position.set(0, 0.205, -0.008);
+          headGroup.add(h);
+        }
+
+        if (hatType < 0.42) {
+          // Golf Cap with brim
+          const dome = new THREE.Mesh(geos.capDome, hatMat);
+          dome.position.set(0, 0.215, 0);
+          headGroup.add(dome);
+          const brim = new THREE.Mesh(geos.capBrim, hatMat);
+          brim.position.set(0, 0.222, 0.112);
+          brim.scale.set(1.4, 1, 1.15);
+          headGroup.add(brim);
+        } else if (hatType < 0.56) {
+          // Sun Visor
+          const band = new THREE.Mesh(geos.visorBand, hatMat);
+          band.position.set(0, 0.23, 0);
+          headGroup.add(band);
+          const brim = new THREE.Mesh(geos.capBrim, hatMat);
+          brim.position.set(0, 0.222, 0.112);
+          brim.scale.set(1.4, 1, 1.15);
+          headGroup.add(brim);
+        } else if (hatType < 0.68) {
+          // Tournament Sun/Bucket Hat
+          const dome = new THREE.Mesh(geos.capDome, hatMat);
+          dome.position.set(0, 0.225, 0);
+          headGroup.add(dome);
+          const brim = new THREE.Mesh(geos.sunHatBrim, hatMat);
+          brim.position.set(0, 0.220, 0);
+          headGroup.add(brim);
+        }
+
+        // Articulated Two-Part Arms in Varied Natural Poses
+        const pose = Math.floor(rand() * 5);
+        const buildFanArm = (side, shRx, shRz, elbRx, elbRz, holdCup = false) => {
+          const sh = new THREE.Group();
+          sh.position.set(side * 0.195, 1.38, 0);
+          sh.rotation.set(shRx, 0, shRz);
+          const upper = new THREE.Mesh(geos.upperArm, shirtMat);
+          upper.position.y = -0.13;
+          upper.castShadow = true;
+          sh.add(upper);
+
+          const elb = new THREE.Group();
+          elb.position.set(0, -0.26, 0);
+          elb.rotation.set(elbRx, 0, elbRz);
+          const fore = new THREE.Mesh(geos.forearm, longSleeve ? shirtMat : skinMat);
+          fore.position.y = -0.12;
+          fore.castShadow = true;
+          elb.add(fore);
+
+          const hand = new THREE.Mesh(geos.hand, skinMat);
+          hand.position.set(0, -0.24, 0);
+          elb.add(hand);
+
+          if (holdCup) {
+            const cup = new THREE.Mesh(geos.cup, mats.cup);
+            cup.position.set(0, -0.25, 0.035);
+            cup.rotation.x = -elbRx * 0.7;
+            elb.add(cup);
+          }
+
+          sh.add(elb);
+          g.add(sh);
+        };
+
+        if (pose === 0) {
+          // Relaxed stance watching shot
+          buildFanArm(-1, -0.08, -0.10, -0.35, 0.06);
+          buildFanArm(1, -0.06, 0.10, -0.32, -0.06);
+        } else if (pose === 1) {
+          // Hand raised shielding eyes from sun!
+          buildFanArm(-1, -0.08, -0.12, -0.45, 0.10);
+          buildFanArm(1, -1.65, -0.25, -1.35, -0.35);
+        } else if (pose === 2) {
+          // Arms folded across chest
+          buildFanArm(-1, -0.42, 0.15, -1.25, 1.15);
+          buildFanArm(1, -0.48, -0.15, -1.25, -1.15);
+        } else if (pose === 3) {
+          // Holding beverage cup
+          buildFanArm(-1, -0.06, -0.12, -0.30, 0.06);
+          buildFanArm(1, -0.45, 0.08, -1.15, -0.10, true);
+        } else {
+          // Clapping / cheering pose
+          buildFanArm(-1, -0.78, 0.22, -0.85, 0.45);
+          buildFanArm(1, -0.78, -0.22, -0.85, -0.45);
+        }
+
+        const heightScale = 0.94 + rand() * 0.12;
+        const widthScale = heightScale * (0.94 + rand() * 0.12);
+        g.scale.set(widthScale, heightScale, widthScale);
+        g.userData.headGroup = headGroup;
+        g.userData.sharedGeo = true;
+        g.userData.sharedMat = true;
+        return g;
+      }
 
       function clearGroup(group) {
+        if (group === worldGroup) animatedFans.length = 0;
         while (group.children.length) {
           const obj = group.children.pop();
-          if (obj.geometry) obj.geometry.dispose();
-          if (obj.material) {
+          if (!obj.userData?.sharedGeo && obj.geometry) obj.geometry.dispose();
+          if (!obj.userData?.sharedMat && obj.material) {
             if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
             else obj.material.dispose();
           }
@@ -3536,17 +3945,15 @@
         const cx = (minX + maxX) * 0.5;
         const cz = (minZ + maxZ) * 0.5;
 
-        // 1. Chunky Flat-Shaded Outer Terrain Mesh
-        const segX = 48;
-        const segZ = 72;
+        const turfTex = getTurfTextures();
+
+        // 1. Textured Rough Terrain Mesh with organic mottling & smooth hill shading
+        const segX = 72;
+        const segZ = 104;
         const terrainGeo = new THREE.PlaneGeometry(w, d, segX, segZ);
         terrainGeo.rotateX(-Math.PI / 2);
         const posAttr = terrainGeo.attributes.position;
-        // ROUGH LOOKS LIKE GRASS: the rough was one flat dark green, so
-        // it read as felt. Each terrain vertex gets a mottled shade
-        // (seeded) that also darkens the valleys and lightens the
-        // hilltops, so the ground is variegated and the hills get
-        // shadow and depth.
+        const uvAttr = terrainGeo.attributes.uv;
         const terrRand = mulberry32(hole.seed + 31337);
         const terrHeights = new Float32Array(posAttr.count);
         let terrMin = Infinity, terrMax = -Infinity;
@@ -3555,6 +3962,7 @@
           const vz = posAttr.getZ(i) + cz;
           const vy = hole.groundHeightAt(vx, vz);
           posAttr.setXYZ(i, vx, vy, vz);
+          uvAttr.setXY(i, vx * 0.16, vz * 0.16);
           terrHeights[i] = vy;
           if (vy < terrMin) terrMin = vy;
           if (vy > terrMax) terrMax = vy;
@@ -3563,58 +3971,69 @@
         const terrSpan = Math.max(0.01, terrMax - terrMin);
         for (let i = 0; i < posAttr.count; i++) {
           const hN = (terrHeights[i] - terrMin) / terrSpan;
-          const mottle = 0.84 + terrRand() * 0.28;
-          const depth = 0.76 + hN * 0.44; // valleys darker, hilltops lighter
+          const mottle = 0.88 + terrRand() * 0.24;
+          const depth = 0.80 + hN * 0.36;
           const m = mottle * depth;
-          terrCols[i * 3] = m * 0.92;
-          terrCols[i * 3 + 1] = m;
-          terrCols[i * 3 + 2] = m * 0.9;
+          terrCols[i * 3] = m * 0.94;
+          terrCols[i * 3 + 1] = m * 1.02;
+          terrCols[i * 3 + 2] = m * 0.90;
         }
         terrainGeo.setAttribute('color', new THREE.BufferAttribute(terrCols, 3));
         terrainGeo.computeVertexNormals();
         const terrainMat = new THREE.MeshStandardMaterial({
           color: roughC,
-          roughness: 0.92,
+          map: turfTex.rough,
+          roughness: 0.94,
           metalness: 0.0,
-          flatShading: true,
+          flatShading: false,
           vertexColors: true,
         });
         const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
         terrainMesh.receiveShadow = true;
         worldGroup.add(terrainMesh);
 
-        // GRASS v2: the old tufts were solid dark cones, so they read
-        // as black thorns. Each tuft is now 3 thin blades splayed
-        // outward (merged open-ended cones, flattened), in lighter
-        // sunlit mid-greens — blades, not spikes. Only where the
-        // surface is Rough (or OB past the fence) — never on the
-        // fairway, green, tee, bunkers or water.
+        // ROUGH GRASS BLADES: 12,000 dense curved multi-blade grass clumps
+        // concentrating around fairway borders, tee box edges & greenside rough,
+        // plus natural wild patches across the terrain, swaying gently in wind.
         {
           const tuftRand = mulberry32(hole.seed + 777);
-          const mergeGeos = (parts) => {
-            const pos = [], norm = [];
-            for (const g of parts) {
-              const ng = g.toNonIndexed();
-              pos.push(...ng.attributes.position.array);
-              norm.push(...ng.attributes.normal.array);
-            }
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-            return geo;
-          };
-          const blades = [0, 2.094, 4.188].map((a) => {
-            const b = new THREE.ConeGeometry(0.10, 0.8, 4, 1, true);
-            b.scale(1, 1, 0.35);
-            b.rotateZ(0.25);
-            b.rotateY(a);
-            b.translate(0, 0.32, 0);
-            return b;
+          const tuftGeo = getRoughGrassClumpGeo();
+          const tuftMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.86,
+            metalness: 0.0,
+            side: THREE.DoubleSide,
+            vertexColors: true,
           });
-          const tuftGeo = mergeGeos(blades);
-          const tuftMat = new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true });
-          const tuftColors = [0x3f8f46, 0x57a85a, 0x2f7a38, 0x6db36a].map((c) => new THREE.Color(c));
-          const TUFTS = 4000;
+          tuftMat.onBeforeCompile = (shader) => {
+            shader.uniforms.uTime = grassWindUniforms.uTime;
+            shader.uniforms.uWindDir = grassWindUniforms.uWindDir;
+            shader.uniforms.uWindAmp = grassWindUniforms.uWindAmp;
+            shader.vertexShader =
+              'uniform float uTime;\nuniform vec2 uWindDir;\nuniform float uWindAmp;\n' +
+              shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                `#include <begin_vertex>
+                #ifdef USE_INSTANCING
+                float swayH = max(0.0, position.y);
+                vec4 instOrigin = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+                float gWave = sin(uTime * 2.2 + instOrigin.x * 0.38 + instOrigin.z * 0.31) * 0.7
+                            + sin(uTime * 3.9 + instOrigin.x * 0.85 - instOrigin.z * 0.62) * 0.3;
+                transformed.xz += uWindDir * (gWave * uWindAmp * swayH * swayH * 5.2);
+                #endif`
+              );
+          };
+
+          const baseRoughCol = new THREE.Color(pal.rough);
+          const tuftColors = [
+            baseRoughCol.clone().multiplyScalar(0.85),
+            baseRoughCol.clone().lerp(new THREE.Color(0x4c9a42), 0.42),
+            baseRoughCol.clone().lerp(new THREE.Color(0x63ad4b), 0.48),
+            baseRoughCol.clone().lerp(new THREE.Color(0x7cb34f), 0.35),
+            baseRoughCol.clone().lerp(new THREE.Color(0x3a7a36), 0.35),
+          ];
+
+          const TUFTS = 12000;
           const tuftMesh = new THREE.InstancedMesh(tuftGeo, tuftMat, TUFTS);
           const _tuftM4 = new THREE.Matrix4();
           const _tuftQ = new THREE.Quaternion();
@@ -3622,37 +4041,87 @@
           const _tuftP = new THREE.Vector3();
           const _tuftUp = new THREE.Vector3(0, 1, 0);
           let placed = 0;
-          let tries = 0;
-          while (placed < TUFTS && tries < TUFTS * 4) {
-            tries++;
-            const tx = minX + tuftRand() * w;
-            const tz = minZ + tuftRand() * d;
+
+          const tryPlaceClump = (tx, tz, minScale, maxScale) => {
+            if (placed >= TUFTS) return false;
             const surf = hole.getSurfaceAt(tx, tz);
-            if (surf !== 'Rough' && surf !== 'OB') continue;
-            if (Math.hypot(tx, tz) < 16) continue; // clear of the tee
-            if (Math.hypot(tx - hole.pin.x, tz - hole.pin.y) < hole.greenRadius + 6) continue;
-            if (Math.hypot(tx - (-26), tz - 22) < 18) continue; // clear of the clubhouse
+            if (surf !== 'Rough' && surf !== 'OB') return false;
+            if (Math.hypot(tx, tz) < hole.teeRadius + 0.9) return false;
+            if (Math.hypot(tx - hole.pin.x, tz - hole.pin.y) < hole.greenRadius + 2.3) return false;
+            if (Math.hypot(tx - (-26), tz - 22) < 18) return false;
             const gy = hole.groundHeightAt(tx, tz);
-            const s = 0.7 + tuftRand() * 0.8;
+            const sx = minScale + tuftRand() * (maxScale - minScale);
+            const sy = minScale + tuftRand() * (maxScale - minScale) * 1.15;
             _tuftQ.setFromAxisAngle(_tuftUp, tuftRand() * Math.PI * 2);
-            _tuftS.set(s, s * (0.8 + tuftRand() * 0.5), s);
-            _tuftP.set(tx, gy + 0.08 * _tuftS.y, tz);
+            _tuftS.set(sx, sy, sx);
+            _tuftP.set(tx, gy - 0.025, tz);
             _tuftM4.compose(_tuftP, _tuftQ, _tuftS);
             tuftMesh.setMatrixAt(placed, _tuftM4);
             tuftMesh.setColorAt(placed, tuftColors[Math.floor(tuftRand() * tuftColors.length)]);
             placed++;
+            return true;
+          };
+
+          // Pass A (~7,600 clumps): lush first-cut & primary rough flanking tee, fairway, & green
+          let triesA = 0;
+          while (placed < 7600 && triesA < 28000) {
+            triesA++;
+            const zone = tuftRand();
+            let tx, tz;
+            if (zone < 0.14) {
+              // Around tee box perimeter (highly visible behind/beside golfer!)
+              const ang = tuftRand() * Math.PI * 2;
+              const rad = hole.teeRadius + 0.8 + tuftRand() * 18;
+              tx = Math.cos(ang) * rad;
+              tz = Math.sin(ang) * rad;
+            } else if (zone < 0.30) {
+              // Greenside rough
+              const ang = tuftRand() * Math.PI * 2;
+              const rad = hole.greenRadius + 2.3 + tuftRand() * 20;
+              tx = hole.pin.x + Math.cos(ang) * rad;
+              tz = hole.pin.y + Math.sin(ang) * rad;
+            } else {
+              // Along fairway borders
+              const t = tuftRand();
+              const pt = hole.curve.getPoint(t);
+              const tan = hole.curve.getTangent(t).normalize();
+              const nx = -tan.y, nz = tan.x;
+              const side = tuftRand() > 0.5 ? 1 : -1;
+              const off = hole.fairwayWidth * 0.92 + Math.pow(tuftRand(), 1.35) * 26;
+              tx = pt.x + nx * side * off + (tuftRand() - 0.5) * 3;
+              tz = pt.y + nz * side * off + (tuftRand() - 0.5) * 3;
+            }
+            tryPlaceClump(tx, tz, 0.78, 1.35);
           }
+
+          // Pass B (~4,400 clumps): natural grass patches across the outer rough
+          let triesB = 0;
+          while (placed < TUFTS && triesB < 18000) {
+            triesB++;
+            const cxPatch = minX + tuftRand() * w;
+            const czPatch = minZ + tuftRand() * d;
+            const patchCount = 3 + Math.floor(tuftRand() * 5);
+            for (let k = 0; k < patchCount && placed < TUFTS; k++) {
+              const tx = cxPatch + (tuftRand() - 0.5) * 6.5;
+              const tz = czPatch + (tuftRand() - 0.5) * 6.5;
+              tryPlaceClump(tx, tz, 0.85, 1.48);
+            }
+          }
+
           tuftMesh.count = placed;
           tuftMesh.instanceMatrix.needsUpdate = true;
           if (tuftMesh.instanceColor) tuftMesh.instanceColor.needsUpdate = true;
+          tuftMesh.computeBoundingSphere();
           tuftMesh.userData.grass = true;
+          tuftMesh.userData.sharedGeo = true;
           worldGroup.add(tuftMesh);
         }
 
-        // 2. Fairway Ribbon (if Par 4/5) with PS1 mow stripes
+        // 2. Fairway Ribbon (if Par 4/5) with mowed turf texture & stripes
         if (hole.par >= 4) {
-          const fwSteps = 32;
+          const fwSteps = 36;
           const fwVerts = [];
+          const fwUvs = [];
           const fwColors = [];
           const fwIndices = [];
           const cA = fwA;
@@ -3675,6 +4144,7 @@
               const pz = pt.y + nz * offset;
               const py = hole.groundHeightAt(px, pz) + 0.09;
               fwVerts.push(px, py, pz);
+              fwUvs.push(px * 0.22, pz * 0.22);
               fwColors.push(stripColor.r, stripColor.g, stripColor.b);
             }
           }
@@ -3690,15 +4160,17 @@
           }
           const fwGeo = new THREE.BufferGeometry();
           fwGeo.setAttribute('position', new THREE.Float32BufferAttribute(fwVerts, 3));
+          fwGeo.setAttribute('uv', new THREE.Float32BufferAttribute(fwUvs, 2));
           fwGeo.setAttribute('color', new THREE.Float32BufferAttribute(fwColors, 3));
           fwGeo.setIndex(fwIndices);
           fwGeo.computeVertexNormals();
           const fwMesh = new THREE.Mesh(
             fwGeo,
             new THREE.MeshStandardMaterial({
+              map: turfTex.fairway,
               vertexColors: true,
-              roughness: 0.85,
-              flatShading: true,
+              roughness: 0.84,
+              flatShading: false,
               polygonOffset: true,
               polygonOffsetFactor: -1,
               polygonOffsetUnits: -1,
@@ -4028,123 +4500,70 @@
           });
         }
 
-        // 12. Fans on the sides: a low-poly gallery standing behind the
-        // OB stakes along both sides of the fairway (never in water,
-        // clear of the tee and the green).
-        if (hole.par >= 4) {
+        // 12. Spectators: realistic human tournament gallery standing along
+        // tee sidelines, fairway ropes, and around the green.
+        {
           const fanRand = mulberry32(hole.seed + 4242);
-          const fanShirts = [0xc8102e, 0x2563eb, 0xf2c200, 0x2e7d32, 0x7c3aed, 0xea580c, 0x111827, 0xe8e8e8];
-          const fanBodyGeo = new THREE.CylinderGeometry(0.2, 0.26, 0.9, 6);
-          const fanHeadGeo = new THREE.SphereGeometry(0.16, 7, 6);
-          const fanCapGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.09, 7);
-          const fanLegGeo = new THREE.CylinderGeometry(0.09, 0.1, 0.6, 5);
-          const fanLegMat = new THREE.MeshStandardMaterial({ color: 0x23282d, roughness: 0.9, flatShading: true });
-          const fanMats = fanShirts.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, flatShading: true }));
-          const fanSkinMats = SKIN_TONES.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, flatShading: true }));
-          for (let i = 0; i < 14; i++) {
-            const t = Math.min(0.96, Math.max(0.04, 0.12 + (i / 13) * 0.76 + (fanRand() - 0.5) * 0.04));
-            const pt = hole.curve.getPoint(t);
-            const tan = hole.curve.getTangent(t).normalize();
-            const nx = -tan.y;
-            const nz = tan.x;
-            const side = i % 2 === 0 ? 1 : -1;
-            let off = 84 + fanRand() * 4;
-            let fx = pt.x + nx * side * off;
-            let fz = pt.y + nz * side * off;
-            if (hole.getSurfaceAt(fx, fz) === 'Water') {
-              off += 8;
-              fx = pt.x + nx * side * off;
-              fz = pt.y + nz * side * off;
-              if (hole.getSurfaceAt(fx, fz) === 'Water') continue;
-            }
-            if (Math.hypot(fx - hole.pin.x, fz - hole.pin.y) < hole.greenRadius + 8) continue;
-            if (Math.hypot(fx, fz) < 18) continue;
-            const gy = hole.groundHeightAt(fx, fz);
-            const fan = new THREE.Group();
-            const body = new THREE.Mesh(fanBodyGeo, fanMats[Math.floor(fanRand() * fanMats.length)]);
-            body.position.y = 0.75;
-            body.userData.fan = true;
-            fan.add(body);
-            const head = new THREE.Mesh(fanHeadGeo, fanSkinMats[Math.floor(fanRand() * fanSkinMats.length)]);
-            head.position.y = 1.45;
-            head.userData.fan = true;
-            fan.add(head);
-            if (fanRand() > 0.5) {
-              const cap = new THREE.Mesh(fanCapGeo, fanMats[Math.floor(fanRand() * fanMats.length)]);
-              cap.position.y = 1.6;
-              cap.userData.fan = true;
-              fan.add(cap);
-            }
-            const legL = new THREE.Mesh(fanLegGeo, fanLegMat);
-            legL.position.set(-0.1, 0.3, 0);
-            fan.add(legL);
-            const legR = new THREE.Mesh(fanLegGeo, fanLegMat);
-            legR.position.set(0.1, 0.3, 0);
-            fan.add(legR);
-            fan.position.set(fx, gy, fz);
-            fan.rotation.y = Math.atan2(-(pt.x - fx), -(pt.y - fz));
-            fan.scale.setScalar(1.25);
-            worldGroup.add(fan);
-          }
-
-          // Spectators you can actually see: a crowd around the green
-          // and a few by the tee (the gallery above is pulled in closer
-          // and made bigger too).
           const addFan = (fx, fz, faceX, faceZ) => {
-            if (hole.getSurfaceAt(fx, fz) === 'Water') return;
+            const surf = hole.getSurfaceAt(fx, fz);
+            if (surf !== 'Rough' && surf !== 'OB') return;
+            if (Math.hypot(fx, fz) < 10.5) return;
+            if (Math.hypot(fx - hole.pin.x, fz - hole.pin.y) < hole.greenRadius + 4.5) return;
+            if (Math.hypot(fx - (-26), fz - 22) < 18) return;
             const gy = hole.groundHeightAt(fx, fz);
-            const fan = new THREE.Group();
-            const body = new THREE.Mesh(fanBodyGeo, fanMats[Math.floor(fanRand() * fanMats.length)]);
-            body.position.y = 0.75;
-            body.userData.fan = true;
-            fan.add(body);
-            const head = new THREE.Mesh(fanHeadGeo, fanSkinMats[Math.floor(fanRand() * fanSkinMats.length)]);
-            head.position.y = 1.45;
-            head.userData.fan = true;
-            fan.add(head);
-            if (fanRand() > 0.5) {
-              const cap = new THREE.Mesh(fanCapGeo, fanMats[Math.floor(fanRand() * fanMats.length)]);
-              cap.position.y = 1.6;
-              cap.userData.fan = true;
-              fan.add(cap);
-            }
-            const legL = new THREE.Mesh(fanLegGeo, fanLegMat);
-            legL.position.set(-0.1, 0.3, 0);
-            fan.add(legL);
-            const legR = new THREE.Mesh(fanLegGeo, fanLegMat);
-            legR.position.set(0.1, 0.3, 0);
-            fan.add(legR);
+            const fan = createSpectatorMesh(fanRand);
             fan.position.set(fx, gy, fz);
-            fan.rotation.y = Math.atan2(-(faceX - fx), -(faceZ - fz));
-            fan.scale.setScalar(1.25);
+            const baseYaw = Math.atan2(faceX - fx, faceZ - fz) + (fanRand() - 0.5) * 0.25;
+            fan.rotation.y = baseYaw;
             worldGroup.add(fan);
+            animatedFans.push({
+              group: fan,
+              head: fan.userData.headGroup,
+              baseYaw,
+              phase: fanRand() * Math.PI * 2,
+              swayAmp: 0.03 + fanRand() * 0.04,
+            });
           };
-          // Around the green (visible on every approach and putt).
-          for (let i = 0; i < 5; i++) {
-            const a = 0.4 + i * 1.25 + fanRand() * 0.3;
-            const r = hole.greenRadius + 9 + fanRand() * 4;
+
+          // Greenside gallery (clusters around the green on all holes)
+          for (let i = 0; i < 8; i++) {
+            const a = 0.25 + i * 0.78 + fanRand() * 0.28;
+            const r = hole.greenRadius + 6.5 + fanRand() * 4.5;
             addFan(hole.pin.x + Math.cos(a) * r, hole.pin.y + Math.sin(a) * r, hole.pin.x, hole.pin.y);
           }
-          // Near gallery: fans just off the fairway edge (30-34 yd from
-          // the centerline, where real tournament ropes are) — the
-          // crowd you can see from the tee and all through the hole.
-          // The far gallery behind the fence is too far out to read
-          // in the narrow portrait camera.
-          for (let i = 0; i < 10; i++) {
-            const t = Math.min(0.94, Math.max(0.06, 0.15 + (i / 9) * 0.75 + (fanRand() - 0.5) * 0.03));
-            const pt = hole.curve.getPoint(t);
-            const tan = hole.curve.getTangent(t).normalize();
-            const nx = -tan.y;
-            const nz = tan.x;
-            const side = i % 2 === 0 ? 1 : -1;
-            const off = 30 + fanRand() * 4;
-            addFan(pt.x + nx * side * off, pt.y + nz * side * off, pt.x, pt.y);
-          }
-          // By the tee (visible at address — just off the fairway,
-          // ~10 degrees off-axis, inside the narrow portrait camera).
-          [[-7, 32], [7, 34], [-9, 50]].forEach(([ox, oz]) => {
-            addFan(ox, oz, 0, 0);
+
+          // Tee-side spectators (visible flanking the tee shot view)
+          [
+            [-13.5, -18], [-15.2, -20.5], [14.0, -19],
+            [-14.5, -33], [15.5, -35], [-11.0, 14],
+          ].forEach(([ox, oz]) => {
+            addFan(ox, oz, 0, -12);
           });
+
+          if (hole.par >= 4) {
+            // Fairway rope gallery along both sides of fairway
+            for (let i = 0; i < 14; i++) {
+              const t = Math.min(0.94, Math.max(0.08, 0.12 + (i / 13) * 0.78 + (fanRand() - 0.5) * 0.04));
+              const pt = hole.curve.getPoint(t);
+              const tan = hole.curve.getTangent(t).normalize();
+              const nx = -tan.y;
+              const nz = tan.x;
+              const side = i % 2 === 0 ? 1 : -1;
+              const off = hole.fairwayWidth + 9 + fanRand() * 7;
+              addFan(pt.x + nx * side * off, pt.y + nz * side * off, pt.x, pt.y);
+            }
+            // Outer gallery behind the OB line
+            for (let i = 0; i < 10; i++) {
+              const t = Math.min(0.95, Math.max(0.10, 0.14 + (i / 9) * 0.74 + (fanRand() - 0.5) * 0.04));
+              const pt = hole.curve.getPoint(t);
+              const tan = hole.curve.getTangent(t).normalize();
+              const nx = -tan.y;
+              const nz = tan.x;
+              const side = i % 2 === 0 ? 1 : -1;
+              const off = 82 + fanRand() * 6;
+              addFan(pt.x + nx * side * off, pt.y + nz * side * off, pt.x, pt.y);
+            }
+          }
         }
 
         // Update sun shadow bounds to cover hole
@@ -6796,9 +7215,21 @@
         const dt = Math.min(0.25, clock.getDelta()); // was 0.05: slow devices starved game time
         const elapsed = clock.getElapsedTime();
 
-        // Flag pennant flutter
+        // Flag pennant flutter & rough grass breeze sway
         if (flagPennantMesh) {
           flagPennantMesh.rotation.y = Math.sin(elapsed * 4.5) * 0.16;
+        }
+        grassWindUniforms.uTime.value = elapsed;
+        grassWindUniforms.uWindDir.value.set(-Math.sin(state.windAngle), -Math.cos(state.windAngle));
+        grassWindUniforms.uWindAmp.value = 0.035 + Math.min(18, state.windSpeed || 5) * 0.004;
+
+        // Subtle living gallery idle weight-shift & look
+        for (let i = 0; i < animatedFans.length; i++) {
+          const f = animatedFans[i];
+          f.group.rotation.y = f.baseYaw + Math.sin(elapsed * 0.9 + f.phase) * f.swayAmp;
+          if (f.head) {
+            f.head.rotation.y = Math.sin(elapsed * 1.3 + f.phase * 1.7) * 0.10;
+          }
         }
 
         // Toast countdown
