@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.7</div>
+        <div class="build-tag">BUILD v2026.11.21.8</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.7</div>
+        <div class="build-tag">BUILD v2026.11.21.8</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1087,7 +1087,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.7</div>
+        <div class="build-tag">BUILD v2026.11.21.8</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1104,7 +1104,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.7</div>
+          <div class="build-tag">BUILD v2026.11.21.8</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2756,7 +2756,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.7
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.8
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -4562,6 +4562,23 @@
         }
       }
 
+      // Loose Tiger swing: hips lead, shoulders follow (the X-factor), and
+      // the spine stands up through the finish — two eased clocks, so the
+      // turn is not one rigid block moving at one speed.
+      const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
+      function applySwingPose() {
+        if (!golferParts.torsoPivot) return;
+        const p = state.lockedPower;
+        const tHips = easeOutCubic(Math.min(1, state.swingAnimTime / 0.16));
+        const tSh = easeOutCubic(Math.min(1, Math.max(0, (state.swingAnimTime - 0.05) / 0.20)));
+        golferParts.torsoPivot.rotation.y = THREE.MathUtils.lerp(p * 0.55, -0.55, tHips);
+        golferParts.torsoPivot.rotation.x = THREE.MathUtils.lerp(0.38 - p * 0.06, 0.12, tSh);
+        golferParts.torsoPivot.rotation.z = THREE.MathUtils.lerp(0, 0.10, tSh);
+        golferParts.armPivot.rotation.y = THREE.MathUtils.lerp(p * 0.55, -0.35, tSh);
+        golferParts.armPivot.rotation.z = THREE.MathUtils.lerp(p * 1.45, -1.35, tSh);
+        golferParts.armPivot.rotation.x = THREE.MathUtils.lerp(-0.55 - p * 0.35, -1.15, tSh);
+      }
+
       function launchSwingAnimation() {
         state.swingPhase = 'swinging';
         state.swingAnimTime = 0;
@@ -5811,7 +5828,12 @@
             document.getElementById('power-fill').style.width = `${pct}%`;
             document.getElementById('meter-power-readout').textContent = `${pct}%`;
             if (golferParts.torsoPivot) {
-              golferParts.torsoPivot.rotation.y = state.powerVal * 0.9;
+              // Backswing coil: hips turn ~half, shoulders add the rest on
+              // top (the X-factor) — the body twists instead of turning
+              // as one stiff block.
+              golferParts.torsoPivot.rotation.y = state.powerVal * 0.55;
+              golferParts.torsoPivot.rotation.x = 0.38 - state.powerVal * 0.06;
+              golferParts.armPivot.rotation.y = state.powerVal * 0.55;
               golferParts.armPivot.rotation.z = state.powerVal * 1.45;
               golferParts.armPivot.rotation.x = -0.55 - state.powerVal * 0.35;
             }
@@ -5824,11 +5846,7 @@
           } else if (state.swingPhase === 'swinging') {
             state.swingAnimTime += dt;
             const t = Math.min(1, state.swingAnimTime / 0.24);
-            if (golferParts.torsoPivot) {
-              golferParts.torsoPivot.rotation.y = THREE.MathUtils.lerp(state.lockedPower * 0.9, -0.85, t);
-              golferParts.armPivot.rotation.z = THREE.MathUtils.lerp(state.lockedPower * 1.45, -1.35, t);
-              golferParts.armPivot.rotation.x = THREE.MathUtils.lerp(-0.55, -1.15, t);
-            }
+            applySwingPose();
             if (t >= 0.45 && state.swingPhase === 'swinging') {
               executeBallStrike();
             }
@@ -5837,6 +5855,12 @@
             }
           } else if (state.swingPhase === 'flying') {
             state.flightTime = (state.flightTime || 0) + dt;
+            // Finish the follow-through: the pose keeps easing to the held
+            // finish while the ball flies (it used to freeze at impact).
+            if (state.swingAnimTime < 0.55) {
+              state.swingAnimTime = Math.min(0.55, state.swingAnimTime + dt);
+              applySwingPose();
+            }
             stepBallPhysics(dt);
             if (state.flightTime > 12 && state.swingPhase === 'flying') {
               finishShot(); // watchdog: no real shot flies this long
