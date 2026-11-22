@@ -1030,10 +1030,28 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.3</div>
+        <div class="build-tag">BUILD v2026.11.21.4</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
+        <div id="firebase-login" class="hidden">
+          <div class="field-group">
+            <label class="field-label" for="fb-email-input">Email</label>
+            <input class="text-input" id="fb-email-input" type="email" maxlength="80" placeholder="you@email.com" autocomplete="email" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="fb-password-input">Password</label>
+            <input class="text-input" id="fb-password-input" type="password" maxlength="64" placeholder="At least 6 characters" autocomplete="current-password" />
+          </div>
+          <div id="fb-error" class="hidden" style="color:#ff8a80;font-size:13px;margin:0 0 10px;"></div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn-primary" id="btn-fb-signin" style="flex:1;padding:14px;">Log In</button>
+            <button class="btn-secondary" id="btn-fb-signup" style="flex:1;padding:14px;">Create Account</button>
+          </div>
+          <p id="fb-status" style="color:var(--text-muted);font-size:13px;margin:10px 0 0;">Your account saves your career in the cloud — it follows you to any device.</p>
+        </div>
+        <div id="firebase-offline" class="hidden" style="color:var(--text-muted);font-size:13px;margin:0 0 6px;">Online accounts are unavailable right now — play on this device below.</div>
+        <p style="text-align:center;color:var(--text-muted);font-size:13px;margin:16px 0 4px;">— or play on this device —</p>
         <div class="field-group">
           <label class="field-label" for="login-name-input">Your Name</label>
           <input class="text-input" id="login-name-input" type="text" maxlength="18" placeholder="e.g. Hush" />
@@ -1047,7 +1065,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.3</div>
+        <div class="build-tag">BUILD v2026.11.21.4</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1064,7 +1082,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.3</div>
+        <div class="build-tag">BUILD v2026.11.21.4</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1081,7 +1099,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.3</div>
+          <div class="build-tag">BUILD v2026.11.21.4</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2686,6 +2704,7 @@
           if (!saveData || !currentProfile) return;
           localStorage.setItem(profileKey(currentProfile), JSON.stringify(saveData));
         } catch {}
+        fbScheduleCloudSave();
       }
       // Backdrop save for the login/menu screens: last player, or a fresh default.
       {
@@ -2694,6 +2713,169 @@
         currentProfile = last;
         saveData = loadSave(last || 'Hush');
       }
+
+      // =========================================================================
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.4
+      // The web config below is the public client config Firebase shows for a
+      // web app; it is meant to be embedded in client code (no secrets in it).
+      // The SDK loads lazily: if the network is down, the game falls back to
+      // the local name profiles and nothing else changes.
+      // =========================================================================
+      const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyAjpsc1fonlrOiM2SUBumqF03QjMRj1-vI",
+        authDomain: "tga-golf-tour.firebaseapp.com",
+        projectId: "tga-golf-tour",
+        storageBucket: "tga-golf-tour.firebasestorage.app",
+        messagingSenderId: "680624990949",
+        appId: "1:680624990949:web:405ff5c0588bfcb902420c",
+        measurementId: "G-5VYSBYP2QP"
+      };
+      const FB_SDK_VERSION = '10.12.2';
+      const fb = { status: 'loading', auth: null, db: null, user: null, _mods: null, _cloudTimer: null };
+      function fbErrorText(err) {
+        const code = (err && err.code) || '';
+        if (code === 'auth/email-already-in-use') return 'That email already has an account — tap Log In instead.';
+        if (code === 'auth/invalid-email') return "That email doesn't look right.";
+        if (code === 'auth/weak-password') return 'Password needs at least 6 characters.';
+        if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') return 'Wrong email or password.';
+        if (code === 'auth/too-many-requests') return 'Too many tries — wait a bit and try again.';
+        if (code === 'auth/network-request-failed') return 'No connection — check your internet and try again.';
+        if (code === 'auth/operation-not-allowed') return "Email sign-in isn't turned on for this project.";
+        return (err && err.message) ? err.message : 'Something went wrong — try again.';
+      }
+      function fbShowError(msg) {
+        const el = document.getElementById('fb-error');
+        if (!el) return;
+        if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+        el.textContent = msg;
+        el.classList.remove('hidden');
+      }
+      function setFbBusy(busy) {
+        ['btn-fb-signin', 'btn-fb-signup'].forEach((id) => {
+          const b = document.getElementById(id);
+          if (b) b.disabled = busy;
+        });
+        const s = document.getElementById('fb-status');
+        if (s) s.textContent = busy ? 'Working…' : 'Your account saves your career in the cloud — it follows you to any device.';
+      }
+      // Validate a cloud save the same way loadSave validates a local one.
+      function sanitizeSave(parsed, fallbackName) {
+        const base = defaultSave(fallbackName);
+        if (!parsed || typeof parsed !== 'object') return base;
+        return {
+          ...base,
+          careerEarnings: Number(parsed.careerEarnings) || 0,
+          roundPoints: Number(parsed.roundPoints) || 0,
+          ownedItems: Array.isArray(parsed.ownedItems) ? parsed.ownedItems : [],
+          equippedItems: Array.isArray(parsed.equippedItems) ? parsed.equippedItems : [],
+          skills: {
+            power: Number(parsed.skills?.power) || 0,
+            accuracy: Number(parsed.skills?.accuracy) || 0,
+            shortGame: Number(parsed.skills?.shortGame) || 0,
+          },
+          bestScores: parsed.bestScores || {},
+          tod: parsed.tod && TIME_OF_DAY[parsed.tod] ? parsed.tod : 'midday',
+          golfer: {
+            name: parsed.golfer?.name || fallbackName || 'Hush',
+            shirt: parsed.golfer?.shirt || SHIRT_COLORS[5],
+            skin: parsed.golfer?.skin || SKIN_TONES[3],
+            hat: parsed.golfer?.hat || 'cap',
+            build: parsed.golfer?.build || 'standard',
+          },
+        };
+      }
+      async function fbLoadCloudSave(uid, fallbackName) {
+        try {
+          const { doc, getDoc } = fb._mods.fs;
+          const snap = await getDoc(doc(fb.db, 'saves', uid));
+          if (snap.exists() && snap.data() && snap.data().save) return sanitizeSave(snap.data().save, fallbackName);
+        } catch {}
+        return null;
+      }
+      async function fbWriteCloudSave() {
+        if (!fb.user || !fb.db || !fb._mods || !saveData) return;
+        try {
+          const { doc, setDoc, serverTimestamp } = fb._mods.fs;
+          await setDoc(doc(fb.db, 'saves', fb.user.uid), { save: saveData, updatedAt: serverTimestamp() }, { merge: true });
+        } catch {}
+      }
+      function fbScheduleCloudSave() {
+        if (!fb.user) return;
+        try { clearTimeout(fb._cloudTimer); } catch {}
+        fb._cloudTimer = setTimeout(fbWriteCloudSave, 800);
+      }
+      // Cloud save first; no cloud save yet -> this device's copy, else fresh.
+      // First sign-in with no cloud save migrates the device's existing local
+      // progress into the account once (persistSave + the debounced cloud
+      // write below upload it).
+      async function fbLoadSaveForUser(user) {
+        const email = user.email || '';
+        const fallbackName = (email.split('@')[0] || 'Hush').replace(/[^A-Za-z0-9 ]/g, '') || 'Hush';
+        const cloud = await fbLoadCloudSave(user.uid, fallbackName);
+        if (cloud) return cloud;
+        let localRaw = null;
+        try { localRaw = localStorage.getItem(profileKey(user.uid)); } catch {}
+        if (!localRaw) {
+          try {
+            const last = localStorage.getItem(LAST_PROFILE_KEY);
+            if (last) localRaw = localStorage.getItem(profileKey(last));
+          } catch {}
+        }
+        if (localRaw) {
+          try { return sanitizeSave(JSON.parse(localRaw), fallbackName); } catch {}
+        }
+        return defaultSave(fallbackName);
+      }
+      async function loginAsFirebase(user) {
+        fb.user = user;
+        currentProfile = user.uid;
+        if (typeof state !== 'undefined') state.profile = user.email || '';
+        saveData = await fbLoadSaveForUser(user);
+        try { localStorage.setItem('tga_golf_tour_last_fb_email_v1', user.email || ''); } catch {}
+        persistSave();
+        fbScheduleCloudSave();
+        state.creatorReturn = 'login';
+        openCreator();
+      }
+      function fbSetStatus(status) {
+        fb.status = status;
+        if (typeof state !== 'undefined' && state && state.mode === 'login') renderLogin();
+      }
+      async function initFirebase() {
+        try {
+          const [appMod, authMod, fsMod] = await Promise.all([
+            import(`https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-app.js`),
+            import(`https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-auth.js`),
+            import(`https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-firestore.js`),
+          ]);
+          const app = appMod.initializeApp(FIREBASE_CONFIG);
+          fb._mods = { auth: authMod, fs: fsMod };
+          fb.auth = authMod.getAuth(app);
+          fb.db = fsMod.getFirestore(app);
+          fbSetStatus('ready');
+          authMod.onAuthStateChanged(fb.auth, async (user) => {
+            fb.user = user || null;
+            if (typeof state === 'undefined' || !state) return;
+            if (user && state.mode === 'login') {
+              // Already signed in: load the cloud save and go straight to the menu.
+              currentProfile = user.uid;
+              state.profile = user.email || '';
+              saveData = await fbLoadSaveForUser(user);
+              persistSave();
+              showScreen('menu');
+              renderMenu();
+            } else if (!user && state.mode === 'login') {
+              renderLogin();
+            }
+          });
+        } catch (e) {
+          // No network / CDN blocked: local name profiles keep working.
+          fbSetStatus('unavailable');
+        }
+      }
+      // Kick off the lazy load; it must never block the game starting.
+      initFirebase();
+
 
       // =========================================================================
       // 3. SEEDED PRNG & AUDIO SYNTH
@@ -4904,6 +5086,14 @@
         state.mode = name;
       }
       function renderLogin() {
+        const fbBox = document.getElementById('firebase-login');
+        const fbOff = document.getElementById('firebase-offline');
+        if (fbBox) fbBox.classList.toggle('hidden', fb.status !== 'ready');
+        if (fbOff) fbOff.classList.toggle('hidden', fb.status !== 'unavailable');
+        const fbEmail = document.getElementById('fb-email-input');
+        if (fbEmail && !fbEmail.value) {
+          try { fbEmail.value = localStorage.getItem('tga_golf_tour_last_fb_email_v1') || ''; } catch {}
+        }
         const list = listProfiles();
         const box = document.getElementById('login-profiles');
         box.innerHTML = '';
@@ -5144,6 +5334,33 @@
       document.getElementById('btn-login').addEventListener('click', () => {
         loginAs(document.getElementById('login-name-input').value);
       });
+      async function fbAuthAction(kind) {
+        if (fb.status !== 'ready' || !fb.auth || !fb._mods) {
+          fbShowError("Online accounts aren't available right now — try the name login below.");
+          return;
+        }
+        const email = document.getElementById('fb-email-input').value.trim();
+        const pw = document.getElementById('fb-password-input').value;
+        if (!email || !pw) { fbShowError('Type your email and password.'); return; }
+        fbShowError(null);
+        setFbBusy(true);
+        try {
+          const fn = kind === 'signup'
+            ? fb._mods.auth.createUserWithEmailAndPassword
+            : fb._mods.auth.signInWithEmailAndPassword;
+          const cred = await fn(fb.auth, email, pw);
+          await loginAsFirebase(cred.user);
+        } catch (err) {
+          fbShowError(fbErrorText(err));
+        } finally {
+          setFbBusy(false);
+        }
+      }
+      document.getElementById('btn-fb-signin').addEventListener('click', () => fbAuthAction('signin'));
+      document.getElementById('btn-fb-signup').addEventListener('click', () => fbAuthAction('signup'));
+      document.getElementById('fb-password-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') fbAuthAction('signin');
+      });
       document.getElementById('login-name-input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') loginAs(e.target.value);
       });
@@ -5152,7 +5369,11 @@
       document.getElementById('btn-mode-pvp').addEventListener('click', () => { state.gameMode = 'pvp'; renderMode(); showScreen('mode'); });
       document.getElementById('btn-menu-shop').addEventListener('click', openShopModal);
       document.getElementById('btn-menu-golfer').addEventListener('click', () => { state.creatorReturn = 'menu'; openCreator(); });
-      document.getElementById('btn-menu-logout').addEventListener('click', () => { showScreen('login'); renderLogin(); });
+      document.getElementById('btn-menu-logout').addEventListener('click', async () => {
+        if (fb.user && fb.auth && fb._mods) { try { await fb._mods.auth.signOut(fb.auth); } catch {} fb.user = null; }
+        showScreen('login');
+        renderLogin();
+      });
       document.getElementById('btn-mode-back').addEventListener('click', () => { showScreen('menu'); renderMenu(); });
       document.getElementById('btn-format-match').addEventListener('click', () => { state.format = 'match'; showScreen('home'); renderHomeUI(); });
       document.getElementById('btn-format-stroke').addEventListener('click', () => { state.format = 'stroke'; showScreen('home'); renderHomeUI(); });
