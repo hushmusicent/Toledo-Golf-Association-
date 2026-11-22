@@ -393,7 +393,7 @@
         }
         .creator-panel {
           width: 100%;
-          max-height: 56vh;
+          max-height: 50vh;
           border-radius: 14px 14px 0 0;
         }
       }
@@ -4167,7 +4167,7 @@
               const offset = (s / 2) * halfW;
               const px = pt.x + nx * offset;
               const pz = pt.y + nz * offset;
-              const py = hole.groundHeightAt(px, pz) + 0.09;
+              const py = hole.groundHeightAt(px, pz) + 0.035;
               fwVerts.push(px, py, pz);
               fwUvs.push(px * 0.22, pz * 0.22);
               fwColors.push(stripColor.r, stripColor.g, stripColor.b);
@@ -4197,21 +4197,28 @@
               roughness: 0.84,
               flatShading: false,
               polygonOffset: true,
-              polygonOffsetFactor: -1,
-              polygonOffsetUnits: -1,
+              polygonOffsetFactor: -2,
+              polygonOffsetUnits: -2,
             })
           );
           fwMesh.receiveShadow = true;
           worldGroup.add(fwMesh);
         }
 
-        // 3. Tee Box + Tee Markers
+        // 3. Tee Box + Tee Markers (top sits at teeBaseY + 0.02 so shoes & ball rest on top)
         const teeGeo = new THREE.CylinderGeometry(hole.teeRadius, hole.teeRadius + 1.2, 0.5, 8);
         const teeMesh = new THREE.Mesh(
           teeGeo,
-          new THREE.MeshStandardMaterial({ color: fwA, roughness: 0.82, flatShading: true })
+          new THREE.MeshStandardMaterial({
+            color: fwA,
+            roughness: 0.82,
+            flatShading: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1,
+          })
         );
-        teeMesh.position.set(0, hole.teeBaseY - 0.15, 0);
+        teeMesh.position.set(0, hole.teeBaseY - 0.23, 0);
         teeMesh.receiveShadow = true;
         worldGroup.add(teeMesh);
 
@@ -4220,7 +4227,7 @@
             new THREE.SphereGeometry(0.32, 6, 5),
             new THREE.MeshStandardMaterial({ color: 0xe2b84f, roughness: 0.4, metalness: 0.2, flatShading: true })
           );
-          marker.position.set(tx, hole.teeBaseY + 0.28, 1.8);
+          marker.position.set(tx, hole.teeBaseY + 0.22, 1.8);
           marker.castShadow = true;
           worldGroup.add(marker);
         });
@@ -4232,7 +4239,7 @@
         for (let i = 0; i < cPos.count; i++) {
           const gx = hole.pin.x + cPos.getX(i);
           const gz = hole.pin.y + cPos.getZ(i);
-          cPos.setY(i, hole.pinBaseY + (gx - hole.pin.x) * hole.greenSlopeX + (gz - hole.pin.y) * hole.greenSlopeZ + 0.05);
+          cPos.setY(i, hole.pinBaseY + (gx - hole.pin.x) * hole.greenSlopeX + (gz - hole.pin.y) * hole.greenSlopeZ + 0.02);
         }
         collarGeo.computeVertexNormals();
         const collarMesh = new THREE.Mesh(
@@ -4243,6 +4250,7 @@
             flatShading: true,
             polygonOffset: true,
             polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1,
           })
         );
         collarMesh.position.set(hole.pin.x, 0, hole.pin.y);
@@ -4258,7 +4266,7 @@
         for (let i = 0; i < gPos.count; i++) {
           const lx = gPos.getX(i);
           const lz = gPos.getZ(i);
-          const gy = hole.pinBaseY + lx * hole.greenSlopeX + lz * hole.greenSlopeZ + 0.1;
+          const gy = hole.pinBaseY + lx * hole.greenSlopeX + lz * hole.greenSlopeZ + 0.035;
           gPos.setY(i, gy);
           const col = Math.floor((lx + hole.greenRadius) / 3.5) % 2 === 0 ? gA : gB;
           gCols.push(col.r, col.g, col.b);
@@ -4294,7 +4302,7 @@
             const half = Math.sqrt(Math.max(0, R * R - gx * gx));
             const pts = [];
             for (let gz = -half; gz <= half; gz += 1) {
-              pts.push(new THREE.Vector3(hole.pin.x + gx, hole.groundHeightAt(hole.pin.x + gx, hole.pin.y + gz) + 0.16, hole.pin.y + gz));
+              pts.push(new THREE.Vector3(hole.pin.x + gx, hole.groundHeightAt(hole.pin.x + gx, hole.pin.y + gz) + 0.075, hole.pin.y + gz));
             }
             pushLine(pts);
           }
@@ -4302,7 +4310,7 @@
             const half = Math.sqrt(Math.max(0, R * R - gz * gz));
             const pts = [];
             for (let gx = -half; gx <= half; gx += 1) {
-              pts.push(new THREE.Vector3(hole.pin.x + gx, hole.groundHeightAt(hole.pin.x + gx, hole.pin.y + gz) + 0.16, hole.pin.y + gz));
+              pts.push(new THREE.Vector3(hole.pin.x + gx, hole.groundHeightAt(hole.pin.x + gx, hole.pin.y + gz) + 0.075, hole.pin.y + gz));
             }
             pushLine(pts);
           }
@@ -4313,7 +4321,7 @@
         }
 
         // 5. Cup & Flagstick
-        const cupY = hole.groundHeightAt(hole.pin.x, hole.pin.y) + 0.11;
+        const cupY = hole.groundHeightAt(hole.pin.x, hole.pin.y) + 0.045;
         holeCupPos.set(hole.pin.x, cupY, hole.pin.y);
 
         const cupMesh = new THREE.Mesh(
@@ -5000,27 +5008,34 @@
           shoeContainer.position.set(0, -0.015, -0.09);
           toePivot.add(shoeContainer);
 
-          // Outsole + upper + collar — shape varies by shoe type (sneakers / cleats / boots)
+          // Outsole + upper + collar — centered around ankle (-0.065) & lifted cleanly above turf
           const shoeType = gCfg.shoeType || 'sneakers';
-          const soleH = shoeType === 'boots' ? 0.038 : 0.028;
-          shoeContainer.add(M(new THREE.BoxGeometry(0.115, soleH, 0.265), matSole, 0, soleH / 2, 0.025));
-          const upper = M(new THREE.SphereGeometry(0.062, 14, 10), matShoes, 0, 0.055, 0.025);
-          upper.scale.set(0.95, 0.68, 2.05);
+          const soleH = shoeType === 'boots' ? 0.040 : 0.030;
+          const cleatLift = shoeType === 'cleats' ? 0.015 : 0.0;
+          const outsole = M(new THREE.BoxGeometry(0.118, soleH, 0.270), matSole, 0, cleatLift + soleH * 0.5, 0.0);
+          shoeContainer.add(outsole);
+          const upper = M(new THREE.SphereGeometry(0.062, 14, 10), matShoes, 0, cleatLift + soleH + 0.032, 0.0);
+          upper.scale.set(0.96, 0.70, 2.10);
           shoeContainer.add(upper);
+          // Tongue / vamp detail so dark shoes read clearly
+          const tongue = M(new THREE.BoxGeometry(0.064, 0.018, 0.075), shoeType === 'sneakers' ? matStripe : matShoes, 0, cleatLift + soleH + 0.064, 0.005);
+          tongue.rotation.x = 0.25;
+          shoeContainer.add(tongue);
           if (shoeType === 'boots') {
-            // Tall ankle shaft, chunkier sole, no stripes
-            shoeContainer.add(M(new THREE.CylinderGeometry(0.05, 0.056, 0.15, 12), matShoes, 0, 0.11, -0.052));
+            // Tall ankle shaft & rugged toe welt
+            shoeContainer.add(M(new THREE.CylinderGeometry(0.052, 0.058, 0.16, 12), matShoes, 0, 0.125, -0.065));
+            shoeContainer.add(M(new THREE.CylinderGeometry(0.055, 0.055, 0.022, 12), matSole, 0, 0.195, -0.065));
           } else {
-            const heelCollar = M(new THREE.CylinderGeometry(0.048, 0.054, 0.068, 12), matShoes, 0, 0.072, -0.052);
+            const heelCollar = M(new THREE.CylinderGeometry(0.050, 0.055, 0.068, 12), matShoes, 0, cleatLift + soleH + 0.046, -0.065);
             shoeContainer.add(heelCollar);
             if (shoeType === 'sneakers') {
-              shoeContainer.add(M(new THREE.BoxGeometry(0.012, 0.022, 0.042), matStripe, side * 0.058, 0.055, -0.01));
-              shoeContainer.add(M(new THREE.BoxGeometry(0.012, 0.022, 0.042), matStripe, side * 0.058, 0.055, 0.052));
+              shoeContainer.add(M(new THREE.BoxGeometry(0.014, 0.024, 0.042), matStripe, side * 0.059, cleatLift + soleH + 0.030, -0.025));
+              shoeContainer.add(M(new THREE.BoxGeometry(0.014, 0.024, 0.042), matStripe, side * 0.059, cleatLift + soleH + 0.030, 0.035));
             } else {
-              // Cleats: spike studs under the outsole
-              const studGeo = new THREE.ConeGeometry(0.011, 0.02, 8);
-              [[-0.035, 0.12], [0.035, 0.12], [-0.035, 0.025], [0.035, 0.025], [-0.035, -0.07], [0.035, -0.07]].forEach(([sx, sz]) => {
-                const stud = M(studGeo, matSole, sx, -0.008, sz);
+              // Cleats: spike studs visibly supporting the outsole above the turf
+              const studGeo = new THREE.ConeGeometry(0.012, 0.020, 8);
+              [[-0.036, 0.095], [0.036, 0.095], [-0.036, 0.0], [0.036, 0.0], [-0.036, -0.095], [0.036, -0.095]].forEach(([sx, sz]) => {
+                const stud = M(studGeo, matSole, sx, 0.008, sz);
                 stud.rotation.x = Math.PI;
                 shoeContainer.add(stud);
               });
@@ -5342,6 +5357,22 @@
         updateAimAndHUD();
       }
 
+      function visualGroundHeightAt(hole, x, z) {
+        const dTee = Math.hypot(x - hole.tee.x, z - hole.tee.y);
+        if (dTee <= hole.teeRadius + 0.5) return hole.teeBaseY + 0.02;
+        const dPin = Math.hypot(x - hole.pin.x, z - hole.pin.y);
+        if (dPin <= hole.greenRadius) {
+          return hole.pinBaseY + (x - hole.pin.x) * hole.greenSlopeX + (z - hole.pin.y) * hole.greenSlopeZ + 0.035;
+        }
+        if (dPin <= hole.greenRadius + 2.2) {
+          return hole.pinBaseY + (x - hole.pin.x) * hole.greenSlopeX + (z - hole.pin.y) * hole.greenSlopeZ + 0.02;
+        }
+        if (hole.getSurfaceAt(x, z) === 'Fairway') {
+          return hole.groundHeightAt(x, z) + 0.035;
+        }
+        return hole.groundHeightAt(x, z);
+      }
+
       function placeGolferAtBall() {
         ballMesh.position.copy(state.ballPos);
         const club = CLUBS[state.clubIdx] || CLUBS[0];
@@ -5355,8 +5386,8 @@
         const leftZ = dirX;
         const gx = state.ballPos.x + leftX * spec.stanceDist * w + dirX * spec.ballX * w;
         const gz = state.ballPos.z + leftZ * spec.stanceDist * w + dirZ * spec.ballX * w;
-        const gy = currentHoleData.groundHeightAt(gx, gz);
-        golferGroup.position.set(gx, gy, gz);
+        const gy = visualGroundHeightAt(currentHoleData, gx, gz);
+        golferGroup.position.set(gx, gy + 0.004, gz);
         golferGroup.rotation.y = state.aimAngle - Math.PI / 2;
         updateGolferClubVisual();
         if (golferParts.pelvisPivot) {
@@ -5943,7 +5974,7 @@
         leftLeg.footPivot.updateMatrix();
         leftLeg.toePivot.updateMatrix();
         _footM4.multiplyMatrices(leftLeg.footPivot.matrix, leftLeg.toePivot.matrix);
-        _lAnkPos.set(0, 0.095, -0.14).applyMatrix4(_footM4);
+        _lAnkPos.set(0, 0.115, -0.065).applyMatrix4(_footM4);
 
         rightLeg.footPivot.position.set(stanceHalf, 0, 0.01);
         rightLeg.footPivot.rotation.set(0, -0.04, 0);
@@ -5951,7 +5982,7 @@
         rightLeg.footPivot.updateMatrix();
         rightLeg.toePivot.updateMatrix();
         _footM4.multiplyMatrices(rightLeg.footPivot.matrix, rightLeg.toePivot.matrix);
-        _rAnkPos.set(0, 0.095, -0.14).applyMatrix4(_footM4);
+        _rAnkPos.set(0, 0.115, -0.065).applyMatrix4(_footM4);
 
         // Knee poles point forward (+Z), with right knee driving inward on downswing/finish
         _lPole.set(-0.16, 0.15, 1.0).normalize();
@@ -7323,25 +7354,28 @@
           camera.lookAt(0, 2, -105);
         } else if (state.mode === 'creator') {
           // Close-up orbital camera on golfer on 1st tee.
-          // Frame the golfer in the FREE area, not behind the panel:
-          // portrait = bottom sheet, so shift the view up into the top half;
-          // wide screen = left panel, so shift the view right of it.
+          // Frame the golfer head-to-toe (including shoes!) in the FREE area:
+          // portrait = bottom sheet (50vh), so shift view up cleanly;
+          // wide screen = left panel, so shift view right of it.
           const _panel = document.querySelector('.creator-panel');
           const _panelW = _panel ? _panel.offsetWidth : 0;
-          if (window.innerWidth < window.innerHeight) {
-            camera.setViewOffset(window.innerWidth, window.innerHeight, 0, window.innerHeight * 0.20, window.innerWidth, window.innerHeight);
+          const isPortrait = window.innerWidth < window.innerHeight;
+          if (isPortrait) {
+            camera.setViewOffset(window.innerWidth, window.innerHeight, 0, window.innerHeight * 0.255, window.innerWidth, window.innerHeight);
           } else if (_panelW > 0) {
             camera.setViewOffset(window.innerWidth, window.innerHeight, -_panelW / 2, 0, window.innerWidth, window.innerHeight);
           } else {
             camera.clearViewOffset();
           }
           const ang = elapsed * 0.45;
+          const orbitR = isPortrait ? 5.0 : 4.3;
+          const camY = isPortrait ? 1.65 : 1.48;
           camera.position.set(
-            golferGroup.position.x + Math.sin(ang) * 4.2,
-            golferGroup.position.y + 2.1,
-            golferGroup.position.z + Math.cos(ang) * 4.2
+            golferGroup.position.x + Math.sin(ang) * orbitR,
+            golferGroup.position.y + camY,
+            golferGroup.position.z + Math.cos(ang) * orbitR
           );
-          camera.lookAt(golferGroup.position.x, golferGroup.position.y + 1.15, golferGroup.position.z);
+          camera.lookAt(golferGroup.position.x, golferGroup.position.y + 0.90, golferGroup.position.z);
           applyGolferPose('creator', 0, 0, elapsed);
         } else if (state.mode === 'flyover') {
           state.flyoverT += dt * 0.16;
