@@ -1030,11 +1030,15 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.5</div>
+        <div class="build-tag">BUILD v2026.11.21.6</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
         <div id="firebase-login" class="hidden">
+          <div class="field-group">
+            <label class="field-label" for="fb-golfer-name-input">Golfer name (for new accounts)</label>
+            <input class="text-input" id="fb-golfer-name-input" type="text" maxlength="18" placeholder="e.g. Hush" autocomplete="nickname" />
+          </div>
           <div class="field-group">
             <label class="field-label" for="fb-email-input">Email</label>
             <input class="text-input" id="fb-email-input" type="email" maxlength="80" placeholder="you@email.com" autocomplete="email" />
@@ -1048,6 +1052,7 @@
             <button class="btn-primary" id="btn-fb-signin" style="flex:1;padding:14px;">Log In</button>
             <button class="btn-secondary" id="btn-fb-signup" style="flex:1;padding:14px;">Create Account</button>
           </div>
+          <button id="btn-fb-forgot" type="button" style="background:none;border:none;color:var(--gold);text-decoration:underline;font-size:13px;cursor:pointer;padding:8px 0 0;">Forgot password?</button>
           <p id="fb-status" style="color:var(--text-muted);font-size:13px;margin:10px 0 0;">Your account saves your career in the cloud — it follows you to any device.</p>
         </div>
         <div id="firebase-offline" class="hidden" style="color:var(--text-muted);font-size:13px;margin:0 0 6px;">Online accounts are unavailable right now — play on this device below.</div>
@@ -1065,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.5</div>
+        <div class="build-tag">BUILD v2026.11.21.6</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1082,7 +1087,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.5</div>
+        <div class="build-tag">BUILD v2026.11.21.6</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1099,7 +1104,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.5</div>
+          <div class="build-tag">BUILD v2026.11.21.6</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2715,7 +2720,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.5
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.6
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -2751,7 +2756,7 @@
         el.classList.remove('hidden');
       }
       function setFbBusy(busy) {
-        ['btn-fb-signin', 'btn-fb-signup'].forEach((id) => {
+        ['btn-fb-signin', 'btn-fb-signup', 'btn-fb-forgot'].forEach((id) => {
           const b = document.getElementById(id);
           if (b) b.disabled = busy;
         });
@@ -2826,11 +2831,13 @@
         }
         return defaultSave(fallbackName);
       }
-      async function loginAsFirebase(user) {
+      async function loginAsFirebase(user, desiredName) {
         fb.user = user;
         currentProfile = user.uid;
         if (typeof state !== 'undefined') state.profile = user.email || '';
         saveData = await fbLoadSaveForUser(user);
+        // A name typed at sign-up wins over the migrated local name.
+        if (desiredName) saveData.golfer.name = desiredName;
         try { localStorage.setItem('tga_golf_tour_last_fb_email_v1', user.email || ''); } catch {}
         persistSave();
         fbScheduleCloudSave();
@@ -5371,6 +5378,7 @@
         }
         const email = document.getElementById('fb-email-input').value.trim();
         const pw = document.getElementById('fb-password-input').value;
+        const desiredName = (document.getElementById('fb-golfer-name-input').value || '').trim();
         if (!email || !pw) { fbShowError('Type your email and password.'); return; }
         fbShowError(null);
         setFbBusy(true);
@@ -5379,7 +5387,7 @@
             ? fb._mods.auth.createUserWithEmailAndPassword
             : fb._mods.auth.signInWithEmailAndPassword;
           const cred = await fn(fb.auth, email, pw);
-          await loginAsFirebase(cred.user);
+          await loginAsFirebase(cred.user, kind === 'signup' ? desiredName : '');
         } catch (err) {
           fbShowError(fbErrorText(err));
         } finally {
@@ -5390,6 +5398,28 @@
       document.getElementById('btn-fb-signup').addEventListener('click', () => fbAuthAction('signup'));
       document.getElementById('fb-password-input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') fbAuthAction('signin');
+      });
+      document.getElementById('btn-fb-forgot').addEventListener('click', async () => {
+        if (fb.status !== 'ready' || !fb.auth || !fb._mods) { fbShowError("Online accounts aren't available right now."); return; }
+        const email = document.getElementById('fb-email-input').value.trim();
+        if (!email) { fbShowError('Type your email above first, then tap Forgot password.'); return; }
+        fbShowError(null);
+        setFbBusy(true);
+        let sent = false;
+        try {
+          await fb._mods.auth.sendPasswordResetEmail(fb.auth, email);
+          sent = true;
+        } catch (err) {
+          const code = (err && err.code) || '';
+          if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') fbShowError('No account uses that email — check the spelling or create an account.');
+          else fbShowError(fbErrorText(err));
+        } finally { setFbBusy(false); }
+        // Set the message AFTER setFbBusy(false): it resets the status line.
+        if (sent) {
+          const s = document.getElementById('fb-status');
+          if (s) s.textContent = 'Reset link sent — check your email (check spam too).';
+          showToast('Reset link sent', 2.5);
+        }
       });
       document.getElementById('login-name-input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') loginAs(e.target.value);
