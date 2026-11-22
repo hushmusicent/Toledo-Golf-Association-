@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.4</div>
+        <div class="build-tag">BUILD v2026.11.21.5</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1065,7 +1065,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.4</div>
+        <div class="build-tag">BUILD v2026.11.21.5</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1082,7 +1082,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.4</div>
+        <div class="build-tag">BUILD v2026.11.21.5</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1099,7 +1099,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.4</div>
+          <div class="build-tag">BUILD v2026.11.21.5</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2715,7 +2715,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.4
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.5
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -2731,7 +2731,7 @@
         measurementId: "G-5VYSBYP2QP"
       };
       const FB_SDK_VERSION = '10.12.2';
-      const fb = { status: 'loading', auth: null, db: null, user: null, _mods: null, _cloudTimer: null };
+      const fb = { status: 'loading', auth: null, db: null, user: null, _mods: null, _cloudTimer: null, lastError: '' };
       function fbErrorText(err) {
         const code = (err && err.code) || '';
         if (code === 'auth/email-already-in-use') return 'That email already has an account — tap Log In instead.';
@@ -2841,13 +2841,37 @@
         fb.status = status;
         if (typeof state !== 'undefined' && state && state.mode === 'login') renderLogin();
       }
+      // The AI Studio preview loads three.js from unpkg fine but would not
+      // load the SDK from gstatic, so try gstatic first and fall back to the
+      // same SDK from jsDelivr (its +esm build stays on jsDelivr and never
+      // touches gstatic). Either source gives the same Firebase API.
+      const FB_SDK_SOURCES = [
+        [
+          `https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-app.js`,
+          `https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-auth.js`,
+          `https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-firestore.js`,
+        ],
+        [
+          `https://cdn.jsdelivr.net/npm/firebase@${FB_SDK_VERSION}/app/+esm`,
+          `https://cdn.jsdelivr.net/npm/firebase@${FB_SDK_VERSION}/auth/+esm`,
+          `https://cdn.jsdelivr.net/npm/firebase@${FB_SDK_VERSION}/firestore/+esm`,
+        ],
+      ];
+      async function fbLoadSdk() {
+        let lastErr = null;
+        for (const [appUrl, authUrl, fsUrl] of FB_SDK_SOURCES) {
+          try {
+            const [appMod, authMod, fsMod] = await Promise.all([
+              import(appUrl), import(authUrl), import(fsUrl),
+            ]);
+            return { appMod, authMod, fsMod };
+          } catch (e) { lastErr = e; }
+        }
+        throw lastErr || new Error('Firebase SDK failed to load');
+      }
       async function initFirebase() {
         try {
-          const [appMod, authMod, fsMod] = await Promise.all([
-            import(`https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-app.js`),
-            import(`https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-auth.js`),
-            import(`https://www.gstatic.com/firebasejs/${FB_SDK_VERSION}/firebase-firestore.js`),
-          ]);
+          const { appMod, authMod, fsMod } = await fbLoadSdk();
           const app = appMod.initializeApp(FIREBASE_CONFIG);
           fb._mods = { auth: authMod, fs: fsMod };
           fb.auth = authMod.getAuth(app);
@@ -2870,6 +2894,7 @@
           });
         } catch (e) {
           // No network / CDN blocked: local name profiles keep working.
+          fb.lastError = (e && e.message) ? String(e.message).slice(0, 80) : 'load failed';
           fbSetStatus('unavailable');
         }
       }
@@ -5089,7 +5114,12 @@
         const fbBox = document.getElementById('firebase-login');
         const fbOff = document.getElementById('firebase-offline');
         if (fbBox) fbBox.classList.toggle('hidden', fb.status !== 'ready');
-        if (fbOff) fbOff.classList.toggle('hidden', fb.status !== 'unavailable');
+        if (fbOff) {
+          fbOff.classList.toggle('hidden', fb.status !== 'unavailable');
+          if (fb.status === 'unavailable' && fb.lastError) {
+            fbOff.textContent = `Online accounts are unavailable right now (${fb.lastError}) — play on this device below.`;
+          }
+        }
         const fbEmail = document.getElementById('fb-email-input');
         if (fbEmail && !fbEmail.value) {
           try { fbEmail.value = localStorage.getItem('tga_golf_tour_last_fb_email_v1') || ''; } catch {}
