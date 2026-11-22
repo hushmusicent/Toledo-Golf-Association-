@@ -4125,11 +4125,123 @@
 
       let golferParts = {};
 
-      // HUSH — the golfer is the man himself, built like a HUMAN, not a mascot:
-      // real proportions (~7.5 heads tall): small head, slim torso, long arms
-      // and legs, hands with thumbs, a real face. Red flat-brim cap, white
-      // glasses, goatee, black hoodie with the red HUSH MUSIC ENT. graphic,
-      // dark jeans, black sneakers with white soles and stripes. Smooth.
+      // Zero-GC scratch math helpers for real-time 2-bone IK & rig poses
+      const _ikV1 = new THREE.Vector3();
+      const _ikV2 = new THREE.Vector3();
+      const _ikDir = new THREE.Vector3();
+      const _ikBend = new THREE.Vector3();
+      const _ikX = new THREE.Vector3();
+      const _ikZ = new THREE.Vector3();
+      const _ikM4 = new THREE.Matrix4();
+      const _rigM4 = new THREE.Matrix4();
+      const _lShPos = new THREE.Vector3();
+      const _rShPos = new THREE.Vector3();
+      const _lHipPos = new THREE.Vector3();
+      const _rHipPos = new THREE.Vector3();
+      const _lAnkPos = new THREE.Vector3();
+      const _rAnkPos = new THREE.Vector3();
+      const _lKneePos = new THREE.Vector3();
+      const _rKneePos = new THREE.Vector3();
+      const _lElbPos = new THREE.Vector3();
+      const _rElbPos = new THREE.Vector3();
+      const _lWriPos = new THREE.Vector3();
+      const _rWriPos = new THREE.Vector3();
+      const _lPole = new THREE.Vector3();
+      const _rPole = new THREE.Vector3();
+      const _gripPos = new THREE.Vector3();
+      const _clubTarget = new THREE.Vector3();
+      const _clubDir = new THREE.Vector3();
+      const _faceDir = new THREE.Vector3();
+      const _clubUp = new THREE.Vector3();
+      const _clubX = new THREE.Vector3();
+      const _clubZ = new THREE.Vector3();
+      const _footM4 = new THREE.Matrix4();
+
+      function solveTwoBoneIK(root, target, l1, l2, poleDir, outMid) {
+        _ikDir.subVectors(target, root);
+        let d = _ikDir.length();
+        const minD = Math.abs(l1 - l2) + 0.004;
+        const maxD = (l1 + l2) * 0.996;
+        if (d < 1e-5) {
+          _ikDir.set(0, -1, 0);
+          d = minD;
+        } else {
+          _ikDir.divideScalar(d);
+        }
+        const dc = Math.min(maxD, Math.max(minD, d));
+        const cosA = THREE.MathUtils.clamp((l1 * l1 + dc * dc - l2 * l2) / (2 * l1 * dc), -1, 1);
+        const proj = l1 * cosA;
+        const perp = Math.sqrt(Math.max(0, l1 * l1 - proj * proj));
+        _ikBend.copy(poleDir).addScaledVector(_ikDir, -poleDir.dot(_ikDir));
+        if (_ikBend.lengthSq() < 1e-6) _ikBend.set(0, 0, 1);
+        else _ikBend.normalize();
+        outMid.copy(root).addScaledVector(_ikDir, proj).addScaledVector(_ikBend, perp);
+      }
+
+      function orientSegment(group, start, end, poleHint) {
+        group.position.copy(start);
+        _ikDir.subVectors(end, start);
+        if (_ikDir.lengthSq() < 1e-8) return;
+        _ikDir.normalize();
+        _ikX.crossVectors(_ikDir, poleHint);
+        if (_ikX.lengthSq() < 1e-6) {
+          _ikV1.set(1, 0, 0);
+          _ikX.crossVectors(_ikDir, _ikV1);
+        }
+        _ikX.normalize();
+        _ikZ.crossVectors(_ikX, _ikDir).normalize();
+        _ikM4.makeBasis(_ikX, _ikDir, _ikZ);
+        group.quaternion.setFromRotationMatrix(_ikM4);
+      }
+
+      function getClubPoseSpec(club) {
+        if (!club || club.name === 'Putter') {
+          return { type: 'putter', length: 0.89, headY: 0.03, stanceDist: 0.80, ballX: -0.08, isPutt: true };
+        }
+        if (club.wood) {
+          const isDriver = club.name === 'Driver';
+          return {
+            type: 'wood',
+            length: isDriver ? 1.13 : 1.07,
+            headY: 0.045,
+            stanceDist: isDriver ? 1.12 : 1.07,
+            ballX: isDriver ? -0.14 : -0.11,
+            isPutt: false,
+          };
+        }
+        const shortIdx = Math.max(0, Math.min(4, (CLUBS.indexOf(club) - 2)));
+        return {
+          type: 'iron',
+          length: 1.02 - shortIdx * 0.02,
+          headY: 0.032,
+          stanceDist: 0.98 - shortIdx * 0.02,
+          ballX: -0.02,
+          isPutt: false,
+        };
+      }
+
+      function updateGolferClubVisual() {
+        if (!golferParts.clubHeads) return;
+        const club = CLUBS[state.clubIdx] || CLUBS[0];
+        const spec = getClubPoseSpec(club);
+        golferParts.clubHeads.wood.visible = spec.type === 'wood';
+        golferParts.clubHeads.iron.visible = spec.type === 'iron';
+        golferParts.clubHeads.putter.visible = spec.type === 'putter';
+        const len = spec.length;
+        if (golferParts.clubShaft) {
+          const shaftLen = Math.max(0.4, len - 0.27);
+          golferParts.clubShaft.scale.set(1, shaftLen, 1);
+          golferParts.clubShaft.position.set(0, -0.27 - shaftLen * 0.5, 0);
+        }
+        if (golferParts.clubHeadAnchor) {
+          golferParts.clubHeadAnchor.position.set(0, -len, 0);
+          golferParts.clubHeadAnchor.rotation.x =
+            spec.type === 'putter' ? 0.34 : spec.type === 'iron' ? 0.56 : 0.65;
+        }
+      }
+
+      // Articulated athletic golfer rig (~7.5 heads tall) with sculpted limbs,
+      // continuous joints, detailed face/hair/headwear, and 2-bone arm/leg IK.
       function rebuildGolferMesh() {
         clearGroup(golferGroup);
         const gCfg = saveData.golfer;
@@ -4140,45 +4252,45 @@
           gCfg.build === 'bigguy' ? { w: 1.24, h: 1.03 } :
           { w: 1.0, h: 1.0 };
 
+        const isPolo = equipped.has('albatross_polo') && !equipped.has('sunday_hoodie');
         const shirtColor = equipped.has('sunday_hoodie')
           ? '#cc2424'
-          : equipped.has('albatross_polo')
+          : isPolo
           ? '#24804a'
           : gCfg.shirt;
 
         const pantsColor = equipped.has('bunker_slacks') ? '#d8cca8' : (gCfg.pants || '#2c3338');
-        // His sneakers: black with white soles and stripes (gold if Golden Cleats)
         const shoeColor = equipped.has('golden_cleats') ? '#e8bd46' : '#17191c';
         const soleColor = equipped.has('golden_cleats') ? '#1c1e20' : '#f5f5f5';
 
-        // Smooth look: no flat shading on the character, higher segment counts.
-        const matShirt = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.8, flatShading: false });
-        const matShirtDark = new THREE.MeshStandardMaterial({ color: new THREE.Color(shirtColor).multiplyScalar(0.6), roughness: 0.8, flatShading: false });
-        const matSkin = new THREE.MeshStandardMaterial({ color: gCfg.skin, roughness: 0.6, flatShading: false });
+        const matShirt = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.78, flatShading: false });
+        const matShirtDark = new THREE.MeshStandardMaterial({ color: new THREE.Color(shirtColor).multiplyScalar(0.62), roughness: 0.82, flatShading: false });
+        const matSkin = new THREE.MeshStandardMaterial({ color: gCfg.skin, roughness: 0.58, flatShading: false });
         const matPants = new THREE.MeshStandardMaterial({ color: pantsColor, roughness: 0.85, flatShading: false });
+        const matPantsSeam = new THREE.MeshStandardMaterial({ color: new THREE.Color(pantsColor).multiplyScalar(0.75), roughness: 0.88, flatShading: false });
         const matShoes = new THREE.MeshStandardMaterial({
           color: shoeColor,
-          roughness: equipped.has('golden_cleats') ? 0.35 : 0.6,
-          metalness: equipped.has('golden_cleats') ? 0.65 : 0.05,
+          roughness: equipped.has('golden_cleats') ? 0.32 : 0.55,
+          metalness: equipped.has('golden_cleats') ? 0.68 : 0.08,
           flatShading: false,
         });
-        const matSole = new THREE.MeshStandardMaterial({ color: soleColor, roughness: 0.7, flatShading: false });
-        const matStripe = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.6, flatShading: false });
-        // His flat-brim cap, in his chosen hat colour (red by default); the Claret Crown stays gold.
+        const matSole = new THREE.MeshStandardMaterial({ color: soleColor, roughness: 0.68, flatShading: false });
+        const matStripe = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.55, flatShading: false });
         const matHat = new THREE.MeshStandardMaterial({
           color: equipped.has('claret_crown') ? '#d4af37' : (gCfg.hatColor || '#c8102e'),
-          roughness: equipped.has('claret_crown') ? 0.3 : 0.7,
-          metalness: equipped.has('claret_crown') ? 0.7 : 0.05,
+          roughness: equipped.has('claret_crown') ? 0.28 : 0.68,
+          metalness: equipped.has('claret_crown') ? 0.72 : 0.05,
           flatShading: false,
         });
         const matHair = new THREE.MeshStandardMaterial({ color: 0x1a120c, roughness: 0.9, flatShading: false });
         const matDark = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.6, flatShading: false });
-        const matGlove = new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.55, flatShading: false });
-        const matGlasses = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.35, flatShading: false });
-        const matLens = new THREE.MeshStandardMaterial({ color: 0xcfe4ee, roughness: 0.15, transparent: true, opacity: 0.45, flatShading: false });
-        const matGraphic = new THREE.MeshStandardMaterial({ color: 0xc8102e, roughness: 0.75, flatShading: false, side: THREE.DoubleSide });
+        const matMetal = new THREE.MeshStandardMaterial({ color: 0xd4dae0, metalness: 0.85, roughness: 0.22, flatShading: false });
+        const matGlove = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.5, flatShading: false });
+        const matGlasses = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.32, flatShading: false });
+        const matLens = new THREE.MeshStandardMaterial({ color: 0xcfe4ee, roughness: 0.14, transparent: true, opacity: 0.48, flatShading: false });
+        const matGraphic = new THREE.MeshStandardMaterial({ color: 0xc8102e, roughness: 0.72, flatShading: false, side: THREE.DoubleSide });
 
-        const M = (geo, mat, x, y, z) => {
+        const M = (geo, mat, x = 0, y = 0, z = 0) => {
           const m = new THREE.Mesh(geo, mat);
           m.position.set(x, y, z);
           m.castShadow = true;
@@ -4189,209 +4301,372 @@
         rig.scale.set(buildScale.w, buildScale.h, buildScale.w);
         golferGroup.add(rig);
 
-        // LEGS — long and slim, like a person's: hip, thigh, knee, calf, shoe.
-        // Legs are half his height (hips at ~1.02 of ~2.03 total).
-        [-0.11, 0.11].forEach((lx) => {
-          rig.add(M(new THREE.SphereGeometry(0.09, 14, 10), matPants, lx, 1.00, 0));
-          const thigh = M(new THREE.CylinderGeometry(0.085, 0.07, 0.44, 12), matPants, lx, 0.80, 0.005);
-          thigh.rotation.z = lx > 0 ? -0.03 : 0.03;
-          rig.add(thigh);
-          rig.add(M(new THREE.SphereGeometry(0.068, 14, 10), matPants, lx, 0.58, 0.01));
-          const calf = M(new THREE.CylinderGeometry(0.068, 0.052, 0.44, 12), matPants, lx, 0.36, 0.01);
-          calf.rotation.z = lx > 0 ? 0.02 : -0.02;
-          rig.add(calf);
-          // Black sneaker, white sole, white side stripes
-          const shoe = M(new THREE.SphereGeometry(0.10, 14, 10), matShoes, lx, 0.07, 0.06);
-          shoe.scale.set(1, 0.6, 1.6);
-          rig.add(shoe);
-          rig.add(M(new THREE.BoxGeometry(0.17, 0.035, 0.30), matSole, lx, 0.025, 0.06));
-          const stripeSide = lx > 0 ? 1 : -1;
-          rig.add(M(new THREE.BoxGeometry(0.015, 0.022, 0.045), matStripe, lx + stripeSide * 0.095, 0.075, 0.03));
-          rig.add(M(new THREE.BoxGeometry(0.015, 0.022, 0.045), matStripe, lx + stripeSide * 0.095, 0.075, 0.10));
-        });
+        // ---------------------------------------------------------------------
+        // 1. PELVIS & ARTICULATED SPINE + HEAD
+        // ---------------------------------------------------------------------
+        const pelvisPivot = new THREE.Group();
+        pelvisPivot.position.set(0, 0.92, -0.02);
+        rig.add(pelvisPivot);
 
-        // Torso Pivot (rotates during swing!) — at the waist
-        const torsoPivot = new THREE.Group();
-        torsoPivot.position.set(0, 1.02, 0);
-        rig.add(torsoPivot);
+        // Sculpted hips/seat + trouser waistband + belt + buckle
+        const pelvisMesh = M(new THREE.CylinderGeometry(0.175, 0.185, 0.17, 18), matPants, 0, 0.015, 0);
+        pelvisMesh.scale.set(1.12, 1, 0.78);
+        pelvisPivot.add(pelvisMesh);
+        const hipSeat = M(new THREE.SphereGeometry(0.17, 16, 12), matPants, 0, -0.02, -0.015);
+        hipSeat.scale.set(1.14, 0.62, 0.78);
+        pelvisPivot.add(hipSeat);
+        const belt = M(new THREE.CylinderGeometry(0.178, 0.180, 0.048, 18), matDark, 0, 0.085, 0);
+        belt.scale.set(1.12, 1, 0.79);
+        pelvisPivot.add(belt);
+        pelvisPivot.add(M(new THREE.BoxGeometry(0.055, 0.042, 0.02), matMetal, 0, 0.085, 0.142));
 
-        // Neck — long enough to read as a person's neck
-        torsoPivot.add(M(new THREE.CylinderGeometry(0.06, 0.075, 0.16, 12), matSkin, 0, 0.68, 0));
-        // Belt — dark
-        torsoPivot.add(M(new THREE.CylinderGeometry(0.245, 0.26, 0.08, 14), matDark, 0, 0.03, 0));
-        // Torso — slim human torso, shoulders a little wider than the waist
-        torsoPivot.add(M(new THREE.CylinderGeometry(0.28, 0.24, 0.58, 16), matShirt, 0, 0.32, 0));
-        // Sloped shoulders, not ball shoulders
-        const shoulders = M(new THREE.SphereGeometry(0.28, 16, 10), matShirt, 0, 0.60, 0);
-        shoulders.scale.set(1.0, 0.45, 0.7);
-        torsoPivot.add(shoulders);
-        // Collar
-        torsoPivot.add(M(new THREE.CylinderGeometry(0.10, 0.13, 0.08, 12), matShirtDark, 0, 0.62, 0));
-        // Hood resting behind the neck + dark drawstrings down the chest
-        const hood = M(new THREE.SphereGeometry(0.17, 14, 10), matShirt, 0, 0.58, -0.15);
-        hood.scale.set(1.1, 0.5, 0.7);
-        torsoPivot.add(hood);
-        [-0.04, 0.04].forEach((sx) => {
-          const str = M(new THREE.CylinderGeometry(0.009, 0.009, 0.15, 6), matDark, sx, 0.48, 0.275);
-          str.rotation.x = 0.08;
-          torsoPivot.add(str);
-        });
-        // Red chest graphic — curved panel hugging the chest, his brand mark
-        torsoPivot.add(M(new THREE.CylinderGeometry(0.265, 0.265, 0.16, 14, 1, true, -0.55, 1.1), matGraphic, 0, 0.34, 0));
+        // Lower spine (waist / abdomen)
+        const lowerSpinePivot = new THREE.Group();
+        lowerSpinePivot.position.set(0, 0.09, 0);
+        pelvisPivot.add(lowerSpinePivot);
 
-        // HEAD — small, human-sized: ~1/7 of his height, not a cartoon ball
-        torsoPivot.add(M(new THREE.SphereGeometry(0.15, 20, 16), matSkin, 0, 0.86, 0));
+        const waistMesh = M(new THREE.CylinderGeometry(0.185, 0.172, 0.22, 18), matShirt, 0, 0.10, 0);
+        waistMesh.scale.set(1.12, 1, 0.76);
+        lowerSpinePivot.add(waistMesh);
+
+        // Upper chest pivot (ribcage / shoulders / graphic / hood)
+        const chestPivot = new THREE.Group();
+        chestPivot.position.set(0, 0.19, 0);
+        lowerSpinePivot.add(chestPivot);
+
+        // V-tapered athletic chest using LatheGeometry
+        const chestProfile = [
+          new THREE.Vector2(0.175, 0.0),
+          new THREE.Vector2(0.192, 0.08),
+          new THREE.Vector2(0.214, 0.20),
+          new THREE.Vector2(0.205, 0.29),
+          new THREE.Vector2(0.120, 0.35),
+          new THREE.Vector2(0.072, 0.365),
+        ];
+        const chestMesh = M(new THREE.LatheGeometry(chestProfile, 20), matShirt, 0, 0, 0);
+        chestMesh.scale.set(1.16, 1, 0.76);
+        chestPivot.add(chestMesh);
+
+        // Shoulder yoke
+        const shoulderYoke = M(new THREE.CapsuleGeometry(0.082, 0.32, 8, 14), matShirt, 0, 0.30, 0);
+        shoulderYoke.rotation.z = Math.PI / 2;
+        shoulderYoke.scale.set(1, 1, 0.92);
+        chestPivot.add(shoulderYoke);
+
+        if (isPolo) {
+          // Tailored polo collar & placket
+          const pCollar = M(new THREE.CylinderGeometry(0.092, 0.115, 0.06, 14), matShirtDark, 0, 0.36, 0);
+          pCollar.scale.set(1.05, 1, 0.9);
+          chestPivot.add(pCollar);
+          chestPivot.add(M(new THREE.BoxGeometry(0.036, 0.13, 0.015), matShirtDark, 0, 0.27, 0.155));
+        } else {
+          // Hoodie collar, hood resting behind neck, drawstrings & HUSH chest emblem
+          const hCollar = M(new THREE.CylinderGeometry(0.095, 0.12, 0.065, 14), matShirtDark, 0, 0.355, 0);
+          chestPivot.add(hCollar);
+          const hood = M(new THREE.SphereGeometry(0.155, 16, 12), matShirt, 0, 0.33, -0.11);
+          hood.scale.set(1.08, 0.48, 0.78);
+          chestPivot.add(hood);
+          [-0.036, 0.036].forEach((sx) => {
+            const str = M(new THREE.CylinderGeometry(0.008, 0.008, 0.15, 6), matDark, sx, 0.25, 0.156);
+            str.rotation.x = 0.09;
+            chestPivot.add(str);
+          });
+          // Signature curved red chest graphic
+          const graphic = M(new THREE.CylinderGeometry(0.214, 0.20, 0.135, 16, 1, true, -0.52, 1.04), matGraphic, 0, 0.16, 0.004);
+          graphic.scale.set(1.16, 1, 0.77);
+          chestPivot.add(graphic);
+        }
+
+        // Neck & Head pivot
+        const neckPivot = new THREE.Group();
+        neckPivot.position.set(0, 0.35, 0);
+        chestPivot.add(neckPivot);
+
+        neckPivot.add(M(new THREE.CylinderGeometry(0.056, 0.072, 0.14, 14), matSkin, 0, 0.065, 0));
+
+        const headPivot = new THREE.Group();
+        headPivot.position.set(0, 0.12, 0);
+        neckPivot.add(headPivot);
+
+        // Sculpted human head (cranium + jawline)
+        const cranium = M(new THREE.SphereGeometry(0.125, 22, 18), matSkin, 0, 0.115, 0);
+        cranium.scale.set(0.92, 1.04, 1.02);
+        headPivot.add(cranium);
+        const jaw = M(new THREE.SphereGeometry(0.092, 18, 14), matSkin, 0, 0.058, 0.022);
+        jaw.scale.set(0.86, 0.92, 0.94);
+        headPivot.add(jaw);
+
         // Ears
-        torsoPivot.add(M(new THREE.SphereGeometry(0.028, 10, 8), matSkin, -0.148, 0.86, 0));
-        torsoPivot.add(M(new THREE.SphereGeometry(0.028, 10, 8), matSkin, 0.148, 0.86, 0));
-        // Eyes + brows + nose + mouth — a real face
-        torsoPivot.add(M(new THREE.SphereGeometry(0.02, 10, 8), matDark, -0.055, 0.88, 0.132));
-        torsoPivot.add(M(new THREE.SphereGeometry(0.02, 10, 8), matDark, 0.055, 0.88, 0.132));
-        torsoPivot.add(M(new THREE.BoxGeometry(0.055, 0.012, 0.012), matHair, -0.055, 0.925, 0.132));
-        torsoPivot.add(M(new THREE.BoxGeometry(0.055, 0.012, 0.012), matHair, 0.055, 0.925, 0.132));
-        const nose = M(new THREE.ConeGeometry(0.02, 0.06, 10), matSkin, 0, 0.84, 0.145);
-        nose.rotation.x = Math.PI / 2;
-        torsoPivot.add(nose);
-        torsoPivot.add(M(new THREE.BoxGeometry(0.05, 0.008, 0.01), matDark, 0, 0.80, 0.128));
-        // Goatee + mustache, like his
-        const goatee = M(new THREE.SphereGeometry(0.045, 10, 8), matHair, 0, 0.765, 0.095);
-        goatee.scale.set(1, 0.6, 0.45);
-        torsoPivot.add(goatee);
-        torsoPivot.add(M(new THREE.BoxGeometry(0.055, 0.012, 0.012), matHair, 0, 0.815, 0.125));
-        // White glasses — frames, lenses, bridge, temples (scaled to his face)
-        [-0.058, 0.058].forEach((gx) => {
-          torsoPivot.add(M(new THREE.BoxGeometry(0.075, 0.06, 0.014), matGlasses, gx, 0.878, 0.142));
-          torsoPivot.add(M(new THREE.BoxGeometry(0.06, 0.048, 0.008), matLens, gx, 0.878, 0.15));
-          const templeSide = gx > 0 ? 1 : -1;
-          torsoPivot.add(M(new THREE.BoxGeometry(0.012, 0.01, 0.12), matGlasses, templeSide * 0.10, 0.882, 0.09));
+        [-0.114, 0.114].forEach((ex) => {
+          const ear = M(new THREE.SphereGeometry(0.024, 10, 8), matSkin, ex, 0.105, -0.005);
+          ear.scale.set(0.55, 1.15, 0.85);
+          headPivot.add(ear);
         });
-        torsoPivot.add(M(new THREE.BoxGeometry(0.035, 0.012, 0.012), matGlasses, 0, 0.885, 0.142));
-        // Hairstyle — short (default), afro, dreads, long, bald. Hair renders
-        // under the cap/visor, so it shows at the back and sides with headwear on.
+
+        // Facial features (eyes, brows, nose, mouth, goatee/mustache)
+        [-0.044, 0.044].forEach((ex) => {
+          headPivot.add(M(new THREE.SphereGeometry(0.015, 10, 8), matDark, ex, 0.125, 0.112));
+          headPivot.add(M(new THREE.BoxGeometry(0.044, 0.01, 0.012), matHair, ex, 0.156, 0.114));
+        });
+        const nose = M(new THREE.ConeGeometry(0.017, 0.048, 10), matSkin, 0, 0.098, 0.125);
+        nose.rotation.x = Math.PI / 2;
+        headPivot.add(nose);
+        headPivot.add(M(new THREE.BoxGeometry(0.042, 0.007, 0.01), matDark, 0, 0.060, 0.108));
+        const goatee = M(new THREE.SphereGeometry(0.036, 12, 10), matHair, 0, 0.028, 0.088);
+        goatee.scale.set(0.95, 0.72, 0.55);
+        headPivot.add(goatee);
+        headPivot.add(M(new THREE.BoxGeometry(0.048, 0.011, 0.011), matHair, 0, 0.072, 0.108));
+
+        // White glasses
+        [-0.048, 0.048].forEach((gx) => {
+          headPivot.add(M(new THREE.BoxGeometry(0.064, 0.048, 0.012), matGlasses, gx, 0.124, 0.122));
+          headPivot.add(M(new THREE.BoxGeometry(0.052, 0.038, 0.008), matLens, gx, 0.124, 0.128));
+          const templeSide = gx > 0 ? 1 : -1;
+          headPivot.add(M(new THREE.BoxGeometry(0.010, 0.009, 0.11), matGlasses, templeSide * 0.088, 0.128, 0.068));
+        });
+        headPivot.add(M(new THREE.BoxGeometry(0.032, 0.011, 0.011), matGlasses, 0, 0.130, 0.122));
+
+        // Hairstyles (short, afro, dreads, long, bald)
         const hairStyle = gCfg.hair || 'short';
         if (hairStyle === 'afro') {
-          const afro = M(new THREE.SphereGeometry(0.205, 18, 14), matHair, 0, 0.94, -0.02);
-          afro.scale.set(1.05, 0.85, 1.05);
-          torsoPivot.add(afro);
+          const afro = M(new THREE.SphereGeometry(0.17, 18, 14), matHair, 0, 0.165, -0.015);
+          afro.scale.set(1.06, 0.88, 1.06);
+          headPivot.add(afro);
         } else if (hairStyle === 'dreads') {
-          torsoPivot.add(M(new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.88, -0.01));
-          [-0.10, -0.05, 0, 0.05, 0.10].forEach((dx) => {
-            const d = M(new THREE.CylinderGeometry(0.02, 0.016, 0.20, 8), matHair, dx, 0.72, -0.12);
-            d.rotation.x = 0.12;
-            d.rotation.z = -dx * 0.8;
-            torsoPivot.add(d);
+          headPivot.add(M(new THREE.SphereGeometry(0.13, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.125, -0.008));
+          [-0.082, -0.041, 0, 0.041, 0.082].forEach((dx) => {
+            const d = M(new THREE.CylinderGeometry(0.016, 0.013, 0.18, 8), matHair, dx, 0.01, -0.105);
+            d.rotation.x = 0.14;
+            d.rotation.z = -dx * 0.7;
+            headPivot.add(d);
           });
-          [-0.12, 0.12].forEach((dx) => {
-            const d = M(new THREE.CylinderGeometry(0.018, 0.015, 0.14, 8), matHair, dx, 0.76, 0.02);
-            d.rotation.z = dx > 0 ? -0.25 : 0.25;
-            torsoPivot.add(d);
+          [-0.102, 0.102].forEach((dx) => {
+            const d = M(new THREE.CylinderGeometry(0.015, 0.012, 0.125, 8), matHair, dx, 0.045, 0.01);
+            d.rotation.z = dx > 0 ? -0.22 : 0.22;
+            headPivot.add(d);
           });
         } else if (hairStyle === 'long') {
-          torsoPivot.add(M(new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.88, -0.01));
-          const back = M(new THREE.SphereGeometry(0.15, 14, 10), matHair, 0, 0.68, -0.11);
-          back.scale.set(0.95, 1.5, 0.5);
-          torsoPivot.add(back);
-        } else if (hairStyle === 'bald') {
-          // No hair at all.
-        } else {
-          // Short (default): hair at the back, plus a top cap when bare-headed.
-          const backHair = M(new THREE.SphereGeometry(0.13, 14, 10), matHair, 0, 0.82, -0.10);
-          backHair.scale.set(1.0, 0.8, 0.55);
-          torsoPivot.add(backHair);
+          headPivot.add(M(new THREE.SphereGeometry(0.13, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.125, -0.008));
+          const back = M(new THREE.SphereGeometry(0.125, 14, 10), matHair, 0, -0.03, -0.095);
+          back.scale.set(0.95, 1.45, 0.52);
+          headPivot.add(back);
+        } else if (hairStyle !== 'bald') {
+          const backHair = M(new THREE.SphereGeometry(0.108, 14, 10), matHair, 0, 0.085, -0.082);
+          backHair.scale.set(1.0, 0.85, 0.58);
+          headPivot.add(backHair);
           if (gCfg.hat === 'none') {
-            torsoPivot.add(M(new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.88, -0.01));
+            headPivot.add(M(new THREE.SphereGeometry(0.128, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), matHair, 0, 0.125, -0.008));
           }
         }
 
-        // Headwear — his red flat-brim cap
+        // Headwear (cap / visor / Claret Crown)
         if (equipped.has('claret_crown')) {
-          torsoPivot.add(M(new THREE.CylinderGeometry(0.15, 0.13, 0.12, 10), matHat, 0, 1.02, 0));
-          [-0.12, -0.04, 0.04, 0.12].forEach((cx) => {
-            torsoPivot.add(M(new THREE.SphereGeometry(0.022, 8, 6), matHat, cx, 1.09, 0));
+          headPivot.add(M(new THREE.CylinderGeometry(0.126, 0.108, 0.10, 12), matHat, 0, 0.25, 0));
+          [-0.095, -0.032, 0.032, 0.095].forEach((cx) => {
+            headPivot.add(M(new THREE.SphereGeometry(0.018, 8, 6), matHat, cx, 0.305, 0));
           });
         } else if (gCfg.hat === 'cap') {
-          const dome = M(new THREE.SphereGeometry(0.165, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), matHat, 0, 0.89, 0);
-          torsoPivot.add(dome);
-          const brim = M(new THREE.CylinderGeometry(0.12, 0.12, 0.02, 16), matHat, 0, 0.90, 0.15);
-          brim.scale.set(1.5, 1, 1.2);
-          torsoPivot.add(brim);
-          // Small white logo on the front of the cap
-          torsoPivot.add(M(new THREE.BoxGeometry(0.035, 0.02, 0.01), matGlasses, 0, 0.96, 0.15));
+          const dome = M(new THREE.SphereGeometry(0.136, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), matHat, 0, 0.132, 0);
+          dome.scale.set(0.96, 1.0, 1.04);
+          headPivot.add(dome);
+          const brim = M(new THREE.CylinderGeometry(0.105, 0.105, 0.016, 16), matHat, 0, 0.145, 0.128);
+          brim.scale.set(1.42, 1, 1.18);
+          headPivot.add(brim);
+          headPivot.add(M(new THREE.BoxGeometry(0.030, 0.018, 0.008), matGlasses, 0, 0.195, 0.128));
         } else if (gCfg.hat === 'visor') {
-          const band = M(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 16, 1, true), matHat, 0, 0.91, 0);
-          torsoPivot.add(band);
-          const brim = M(new THREE.CylinderGeometry(0.12, 0.12, 0.02, 16), matHat, 0, 0.90, 0.15);
-          brim.scale.set(1.5, 1, 1.2);
-          torsoPivot.add(brim);
+          const band = M(new THREE.CylinderGeometry(0.132, 0.132, 0.052, 16, 1, true), matHat, 0, 0.15, 0);
+          headPivot.add(band);
+          const brim = M(new THREE.CylinderGeometry(0.105, 0.105, 0.016, 16), matHat, 0, 0.145, 0.128);
+          brim.scale.set(1.42, 1, 1.18);
+          headPivot.add(brim);
         }
 
-        // ARMS + Club Pivot — long human arms: shoulder, upper arm, elbow,
-        // forearm, and a real hand with a thumb, meeting at the grip.
-        const armPivot = new THREE.Group();
-        armPivot.position.set(0, 0.60, 0.12);
-        torsoPivot.add(armPivot);
+        // ---------------------------------------------------------------------
+        // 2. ARTICULATED LEGS & FEET (with heel-lift toe pivots for follow-through!)
+        // ---------------------------------------------------------------------
+        const LEG_L1 = 0.43; // thigh
+        const LEG_L2 = 0.42; // shin
+        const buildLeg = (side) => {
+          const thighGroup = new THREE.Group();
+          rig.add(thighGroup);
+          const hipCap = M(new THREE.SphereGeometry(0.088, 14, 10), matPants, 0, 0, 0);
+          hipCap.scale.set(1, 0.92, 0.92);
+          thighGroup.add(hipCap);
+          const thighMesh = M(new THREE.CylinderGeometry(0.062, 0.088, LEG_L1, 14), matPants, 0, LEG_L1 * 0.5, 0);
+          thighGroup.add(thighMesh);
+          thighGroup.add(M(new THREE.SphereGeometry(0.063, 14, 10), matPants, 0, LEG_L1, 0));
 
-        [-1, 1].forEach((side) => {
-          armPivot.add(M(new THREE.SphereGeometry(0.07, 14, 10), matShirt, side * 0.22, 0.03, 0.02));
-          const sleeve = M(new THREE.CylinderGeometry(0.065, 0.058, 0.32, 12), matShirt, side * 0.235, -0.13, 0.09);
-          sleeve.rotation.z = side * 0.12;
-          sleeve.rotation.x = -0.30;
-          armPivot.add(sleeve);
-          armPivot.add(M(new THREE.SphereGeometry(0.05, 12, 10), matShirt, side * 0.225, -0.29, 0.15));
-          const forearm = M(new THREE.CylinderGeometry(0.05, 0.045, 0.26, 12), matSkin, side * 0.17, -0.42, 0.20);
-          forearm.rotation.z = side * 0.15;
-          forearm.rotation.x = -0.45;
-          armPivot.add(forearm);
-          // Hand with a thumb — left hand wears the glove when equipped
-          const handMat = (side < 0 && equipped.has('major_glove')) ? matGlove : matSkin;
-          const hand = M(new THREE.SphereGeometry(0.055, 12, 10), handMat, side * 0.09, -0.55, 0.29);
-          hand.scale.set(0.85, 1.25, 0.6);
-          armPivot.add(hand);
-          armPivot.add(M(new THREE.SphereGeometry(0.02, 8, 6), handMat, side * 0.055, -0.53, 0.31));
-        });
+          const shinGroup = new THREE.Group();
+          rig.add(shinGroup);
+          const shinProfile = [
+            new THREE.Vector2(0.062, 0.0),
+            new THREE.Vector2(0.067, 0.13),
+            new THREE.Vector2(0.058, 0.27),
+            new THREE.Vector2(0.049, LEG_L2),
+          ];
+          const shinMesh = M(new THREE.LatheGeometry(shinProfile, 14), matPants, 0, 0, 0);
+          shinGroup.add(shinMesh);
+          const cuff = M(new THREE.CylinderGeometry(0.052, 0.054, 0.04, 12), matPantsSeam, 0, LEG_L2 - 0.02, 0);
+          shinGroup.add(cuff);
 
-        // Club — grip, steel shaft, driver head. The shaft runs from the hands
-        // out to the head, so the head sits BESIDE the ball with its face
-        // touching it, not tucked under the ball where it can't be seen.
-        const clubTop = new THREE.Vector3(0, -0.62, 0.30);
-        const clubHeadPos = new THREE.Vector3(0.35, -1.56, 0.57);
-        const clubDir = new THREE.Vector3().subVectors(clubHeadPos, clubTop);
-        const clubQuat = new THREE.Quaternion().setFromUnitVectors(
-          new THREE.Vector3(0, 1, 0), clubDir.clone().normalize()
+          // Foot pivot (anchored on turf) + toePivot (rotates heel upward!)
+          const footPivot = new THREE.Group();
+          rig.add(footPivot);
+          const toePivot = new THREE.Group();
+          toePivot.position.set(0, 0.015, 0.09);
+          footPivot.add(toePivot);
+
+          const shoeContainer = new THREE.Group();
+          shoeContainer.position.set(0, -0.015, -0.09);
+          toePivot.add(shoeContainer);
+
+          // Outsole + sneaker upper + collar + stripes
+          shoeContainer.add(M(new THREE.BoxGeometry(0.115, 0.028, 0.265), matSole, 0, 0.014, 0.025));
+          const upper = M(new THREE.SphereGeometry(0.062, 14, 10), matShoes, 0, 0.055, 0.025);
+          upper.scale.set(0.95, 0.68, 2.05);
+          shoeContainer.add(upper);
+          const heelCollar = M(new THREE.CylinderGeometry(0.048, 0.054, 0.068, 12), matShoes, 0, 0.072, -0.052);
+          shoeContainer.add(heelCollar);
+          shoeContainer.add(M(new THREE.BoxGeometry(0.012, 0.022, 0.042), matStripe, side * 0.058, 0.055, -0.01));
+          shoeContainer.add(M(new THREE.BoxGeometry(0.012, 0.022, 0.042), matStripe, side * 0.058, 0.055, 0.052));
+
+          return { thighGroup, shinGroup, footPivot, toePivot };
+        };
+        const leftLeg = buildLeg(-1);
+        const rightLeg = buildLeg(1);
+
+        // ---------------------------------------------------------------------
+        // 3. ARTICULATED ARMS (2-Bone IK from chest shoulders to club grip)
+        // ---------------------------------------------------------------------
+        const ARM_L1 = 0.31;
+        const ARM_L2 = 0.29;
+        const buildArm = () => {
+          const upperGroup = new THREE.Group();
+          rig.add(upperGroup);
+          upperGroup.add(M(new THREE.SphereGeometry(0.066, 14, 10), matShirt, 0, 0, 0));
+          if (isPolo) {
+            // Short polo sleeve + muscular bare lower bicep
+            upperGroup.add(M(new THREE.CylinderGeometry(0.052, 0.063, 0.17, 14), matShirt, 0, 0.085, 0));
+            upperGroup.add(M(new THREE.CylinderGeometry(0.046, 0.051, ARM_L1 - 0.16, 12), matSkin, 0, 0.16 + (ARM_L1 - 0.16) * 0.5, 0));
+            upperGroup.add(M(new THREE.SphereGeometry(0.046, 12, 10), matSkin, 0, ARM_L1, 0));
+          } else {
+            // Hoodie sleeve pushed up just above elbow
+            upperGroup.add(M(new THREE.CylinderGeometry(0.052, 0.064, ARM_L1 - 0.03, 14), matShirt, 0, (ARM_L1 - 0.03) * 0.5, 0));
+            upperGroup.add(M(new THREE.CylinderGeometry(0.050, 0.052, 0.035, 12), matShirtDark, 0, ARM_L1 - 0.035, 0));
+            upperGroup.add(M(new THREE.SphereGeometry(0.046, 12, 10), matSkin, 0, ARM_L1, 0));
+          }
+
+          const forearmGroup = new THREE.Group();
+          rig.add(forearmGroup);
+          forearmGroup.add(M(new THREE.CylinderGeometry(0.035, 0.046, ARM_L2, 12), matSkin, 0, ARM_L2 * 0.5, 0));
+          return { upperGroup, forearmGroup };
+        };
+        const leftArm = buildArm();
+        const rightArm = buildArm();
+
+        // ---------------------------------------------------------------------
+        // 4. CLUB + GRIPPED HANDS (Attached directly to clubPivot!)
+        // ---------------------------------------------------------------------
+        const clubPivot = new THREE.Group();
+        rig.add(clubPivot);
+
+        // Rubber grip (0 down to -0.27 along -Y)
+        const grip = M(new THREE.CylinderGeometry(0.022, 0.018, 0.27, 10), matDark, 0, -0.135, 0);
+        clubPivot.add(grip);
+        // Grip butt cap
+        clubPivot.add(M(new THREE.CylinderGeometry(0.024, 0.022, 0.018, 10), matStripe, 0, -0.008, 0));
+
+        // Hands wrapped tightly around the grip: left hand higher (-0.065), right hand lower (-0.175)
+        const makeHand = (isGloved, yPos) => {
+          const hg = new THREE.Group();
+          hg.position.set(0, yPos, 0);
+          const hm = isGloved ? matGlove : matSkin;
+          const palm = M(new THREE.SphereGeometry(0.037, 12, 10), hm, 0, 0, -0.004);
+          palm.scale.set(0.95, 1.32, 0.85);
+          hg.add(palm);
+          // Thumb resting down the front of the grip
+          const thumb = M(new THREE.CapsuleGeometry(0.012, 0.032, 4, 8), hm, 0, -0.032, 0.022);
+          thumb.rotation.x = 0.25;
+          hg.add(thumb);
+          if (isGloved) {
+            hg.add(M(new THREE.CylinderGeometry(0.032, 0.034, 0.022, 10), matDark, 0, 0.042, 0));
+          }
+          clubPivot.add(hg);
+        };
+        makeHand(equipped.has('major_glove'), -0.065);
+        makeHand(false, -0.175);
+
+        // Steel/graphite shaft (scaled dynamically per club)
+        const clubShaft = M(new THREE.CylinderGeometry(0.009, 0.012, 1.0, 8), matMetal, 0, -0.7, 0);
+        clubPivot.add(clubShaft);
+
+        // Interchangeable Club Heads at -Y tip (local -X = face toward target, +Z = toe)
+        const clubHeadAnchor = new THREE.Group();
+        clubPivot.add(clubHeadAnchor);
+
+        // A) Driver / Wood head
+        const woodHead = new THREE.Group();
+        const woodCrown = M(
+          new THREE.SphereGeometry(0.092, 18, 12),
+          new THREE.MeshStandardMaterial({ color: 0x1a1d22, metalness: 0.65, roughness: 0.28 }),
+          0.025, 0.01, 0.08
         );
-        const grip = M(new THREE.CylinderGeometry(0.04, 0.04, 0.28, 8), matDark, 0, 0, 0);
-        grip.position.copy(clubTop);
-        grip.quaternion.copy(clubQuat);
-        armPivot.add(grip);
-        const shaft = M(
-          new THREE.CylinderGeometry(0.018, 0.018, clubDir.length(), 6),
-          new THREE.MeshStandardMaterial({ color: 0xd0d6db, metalness: 0.5, roughness: 0.3 }),
-          0, 0, 0
-        );
-        shaft.position.copy(clubTop).addScaledVector(clubDir, 0.5);
-        shaft.quaternion.copy(clubQuat);
-        armPivot.add(shaft);
-        // Driver head, like Tiger's in the picture: big rounded titanium head
-        // with a flat silver face toward the target.
-        const clubHeadGroup = new THREE.Group();
-        clubHeadGroup.position.set(0.35, -1.56, 0.57); // beside the ball, face touching it
-        clubHeadGroup.rotation.z = -0.15;
-        clubHeadGroup.rotation.x = 0.28;
-        const driverHead = M(
-          new THREE.SphereGeometry(0.13, 16, 12),
-          new THREE.MeshStandardMaterial({ color: 0x1c1f22, metalness: 0.7, roughness: 0.3 }),
-          0, 0, 0
-        );
-        driverHead.scale.set(1.35, 0.6, 1.0);
-        clubHeadGroup.add(driverHead);
-        clubHeadGroup.add(M(
-          new THREE.BoxGeometry(0.02, 0.08, 0.14),
-          new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.9, roughness: 0.15 }),
-          -0.16, 0, 0
+        woodCrown.scale.set(1.0, 0.56, 1.42);
+        woodHead.add(woodCrown);
+        woodHead.add(M(
+          new THREE.BoxGeometry(0.014, 0.062, 0.125),
+          new THREE.MeshStandardMaterial({ color: 0xe2e7ec, metalness: 0.9, roughness: 0.16 }),
+          -0.062, 0.01, 0.08
         ));
-        armPivot.add(clubHeadGroup);
+        woodHead.add(M(new THREE.CylinderGeometry(0.014, 0.016, 0.05, 8), matDark, 0, 0.025, 0));
+        clubHeadAnchor.add(woodHead);
 
-        golferParts = { rig, torsoPivot, armPivot };
+        // B) Iron / Wedge blade
+        const ironHead = new THREE.Group();
+        const blade = M(
+          new THREE.BoxGeometry(0.024, 0.056, 0.115),
+          new THREE.MeshStandardMaterial({ color: 0xdce2e8, metalness: 0.88, roughness: 0.20 }),
+          -0.005, 0.012, 0.058
+        );
+        blade.rotation.z = -0.22;
+        ironHead.add(blade);
+        ironHead.add(M(new THREE.CylinderGeometry(0.013, 0.015, 0.055, 8), matDark, 0, 0.03, 0));
+        clubHeadAnchor.add(ironHead);
+
+        // C) Blade/Mallet Putter
+        const putterHead = new THREE.Group();
+        const pBody = M(
+          new THREE.BoxGeometry(0.036, 0.028, 0.135),
+          new THREE.MeshStandardMaterial({ color: 0x262a30, metalness: 0.78, roughness: 0.28 }),
+          -0.004, 0.008, 0.052
+        );
+        putterHead.add(pBody);
+        putterHead.add(M(new THREE.BoxGeometry(0.028, 0.004, 0.008), matStripe, 0.002, 0.023, 0.052));
+        putterHead.add(M(new THREE.CylinderGeometry(0.012, 0.012, 0.045, 8), matMetal, 0, 0.026, 0));
+        clubHeadAnchor.add(putterHead);
+
+        golferParts = {
+          rig,
+          buildScale,
+          pelvisPivot,
+          lowerSpinePivot,
+          chestPivot,
+          neckPivot,
+          headPivot,
+          leftLeg,
+          rightLeg,
+          leftArm,
+          rightArm,
+          clubPivot,
+          clubShaft,
+          clubHeadAnchor,
+          clubHeads: { wood: woodHead, iron: ironHead, putter: putterHead },
+          LEG_L1,
+          LEG_L2,
+          ARM_L1,
+          ARM_L2,
+        };
+        updateGolferClubVisual();
       }
 
       // Golf Ball + Trail + Aim Guide — real size next to the club
@@ -4522,6 +4797,7 @@
           }
         }
         state.clubIdx = bestIdx;
+        updateGolferClubVisual();
       }
 
       function getTargetAimForHole() {
@@ -4571,22 +4847,23 @@
 
       function placeGolferAtBall() {
         ballMesh.position.copy(state.ballPos);
+        const club = CLUBS[state.clubIdx] || CLUBS[0];
+        const spec = getClubPoseSpec(club);
+        const w = (golferParts.buildScale && golferParts.buildScale.w) || 1.0;
+
         const dirX = -Math.sin(state.aimAngle);
         const dirZ = -Math.cos(state.aimAngle);
         // Right-handed golfer stands to the left of the shot line
         const leftX = -dirZ;
         const leftZ = dirX;
-        const gx = state.ballPos.x + leftX * 1.15;
-        const gz = state.ballPos.z + leftZ * 1.15;
+        const gx = state.ballPos.x + leftX * spec.stanceDist * w + dirX * spec.ballX * w;
+        const gz = state.ballPos.z + leftZ * spec.stanceDist * w + dirZ * spec.ballX * w;
         const gy = currentHoleData.groundHeightAt(gx, gz);
         golferGroup.position.set(gx, gy, gz);
-        golferGroup.rotation.y = state.aimAngle - Math.PI / 2; // right-handed: left shoulder at the target, chest to the ball
-        if (golferParts.torsoPivot) {
-          // ADDRESS (Tiger): bent forward at the waist, arms hanging forward
-          // to the ball, club head resting at the ball — not bolt upright.
-          golferParts.torsoPivot.rotation.set(0.38, 0, 0);
-          golferParts.armPivot.rotation.set(-0.55, 0, 0);
-          golferParts.rig.rotation.x = 0.04;
+        golferGroup.rotation.y = state.aimAngle - Math.PI / 2;
+        updateGolferClubVisual();
+        if (golferParts.pelvisPivot) {
+          applyGolferPose(state.mode === 'creator' ? 'creator' : 'address', 0, 0, clock.getElapsedTime());
         }
         golferGroup.visible = true;
       }
@@ -4891,21 +5168,345 @@
         }
       }
 
-      // Loose Tiger swing: hips lead, shoulders follow (the X-factor), and
-      // the spine stands up through the finish — two eased clocks, so the
-      // turn is not one rigid block moving at one speed.
       const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
+      const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+      // Unified biomechanical pose engine for creator, address/waggle,
+      // backswing coil, downswing/impact, high pro finish, and putting stroke.
+      function applyGolferPose(phase, powerVal = 0, animTime = 0, elapsed = 0) {
+        const gp = golferParts;
+        if (!gp || !gp.pelvisPivot) return;
+        const club = CLUBS[state.clubIdx] || CLUBS[0];
+        const spec = getClubPoseSpec(club);
+        const isPutt = spec.isPutt && phase !== 'creator';
+
+        let pelvisX = 0, pelvisY = 0.90, pelvisZ = -0.02;
+        let pelvisRotX = 0.14, pelvisRotY = 0, pelvisRotZ = 0;
+        let lSpineX = 0.20, lSpineY = 0, lSpineZ = 0;
+        let chestX = 0.20, chestY = 0, chestZ = -0.06;
+        let headX = 0.24, headY = -0.06, headZ = 0;
+        let rHeelLift = 0, lFootRoll = 0;
+        let stanceHalf = isPutt ? 0.165 : 0.215;
+
+        const breath = Math.sin(elapsed * 2.1) * 0.012;
+        const waggle = phase === 'address' ? Math.sin(elapsed * 3.1) * Math.max(0, Math.sin(elapsed * 0.7)) : 0;
+
+        if (phase === 'creator') {
+          // Confident athletic showcase pose so face, hoodie/polo, cap & stance read cleanly
+          pelvisY = 0.945;
+          pelvisRotX = 0.04;
+          lSpineX = 0.05;
+          chestX = 0.04 + breath * 0.5;
+          chestZ = -0.02;
+          headX = 0.02;
+          headY = 0.02 * Math.sin(elapsed * 0.5);
+          _gripPos.set(-0.02, 0.96, 0.34);
+          _clubTarget.set(-0.14, spec.headY, 0.95);
+          _faceDir.set(-1, 0, 0);
+        } else if (isPutt) {
+          // PUTTING STROKE: quiet lower body, bent over the ball, pure shoulder pendulum
+          pelvisY = 0.905;
+          pelvisRotX = 0.16;
+          lSpineX = 0.25;
+          chestX = 0.27 + breath * 0.4;
+          chestZ = -0.02;
+          headX = 0.34;
+          headY = 0;
+
+          let strokeArc = 0; // + = backswing (+X), - = follow-through (-X)
+          if (phase === 'address') {
+            strokeArc = waggle * 0.025;
+          } else if (phase === 'backswing') {
+            strokeArc = Math.min(1, Math.max(0, powerVal));
+          } else if (phase === 'swing') {
+            const p = Math.max(0.08, powerVal);
+            const tHit = 0.15;
+            if (animTime < tHit) {
+              const u = easeInOutCubic(animTime / tHit);
+              strokeArc = THREE.MathUtils.lerp(p, 0, u);
+            } else {
+              const u = easeOutCubic(Math.min(1, (animTime - tHit) / 0.28));
+              strokeArc = THREE.MathUtils.lerp(0, -p * 0.85, u);
+            }
+          }
+
+          const swingX = strokeArc * 0.26;
+          chestZ = -0.02 + strokeArc * 0.11;
+          _gripPos.set(-0.04 + swingX * 0.72, 0.86 + Math.abs(swingX) * 0.08, 0.48);
+          _clubTarget.set(spec.ballX + swingX * 1.45, spec.headY + Math.abs(swingX) * 0.05, spec.stanceDist);
+          _faceDir.set(-1, 0, -strokeArc * 0.12).normalize();
+        } else {
+          // FULL GOLF SWING (Driver, Wood, Iron, Wedge)
+          if (phase === 'address') {
+            pelvisY = 0.90;
+            chestX = 0.20 + breath;
+            const wagX = waggle * 0.035;
+            _gripPos.set(spec.ballX + 0.05 + wagX, 0.91 + Math.abs(wagX) * 0.2, 0.44);
+            _clubTarget.set(spec.ballX + wagX * 1.8, spec.headY + Math.abs(wagX) * 0.5, spec.stanceDist);
+            _faceDir.set(-1, 0.12 * waggle, -0.08 * waggle).normalize();
+          } else if (phase === 'backswing') {
+            const p = THREE.MathUtils.clamp(powerVal, 0, 1);
+            const pTake = THREE.MathUtils.clamp(p / 0.38, 0, 1);
+            const pTop = THREE.MathUtils.clamp((p - 0.38) / 0.62, 0, 1);
+            const sTake = easeInOutCubic(pTake);
+            const sTop = easeInOutCubic(pTop);
+
+            // Hips turn ~38 deg, shoulders coil ~92 deg (X-factor), head stays locked on ball
+            pelvisX = 0.045 * p;
+            pelvisY = 0.90 + 0.015 * p;
+            pelvisRotY = 0.66 * p;
+            lSpineY = 0.42 * p;
+            chestY = 0.52 * p;
+            chestX = 0.20 - 0.04 * p + breath * 0.5;
+            chestZ = -0.06 + 0.18 * p; // left shoulder dips down under chin
+            headY = -(pelvisRotY + lSpineY + chestY) * 0.88;
+            headZ = 0.14 * p;
+            headX = 0.24 - 0.04 * p;
+
+            // Hands trace inclined arc: address -> P2 waist high -> P4 high above trail shoulder
+            if (p <= 0.38) {
+              _gripPos.set(
+                THREE.MathUtils.lerp(spec.ballX + 0.05, 0.36, sTake),
+                THREE.MathUtils.lerp(0.91, 1.04, sTake),
+                THREE.MathUtils.lerp(0.44, 0.30, sTake)
+              );
+              _clubTarget.set(
+                THREE.MathUtils.lerp(spec.ballX, 1.32, sTake),
+                THREE.MathUtils.lerp(spec.headY, 1.06, sTake),
+                THREE.MathUtils.lerp(spec.stanceDist, 0.12, sTake)
+              );
+              _faceDir.set(
+                THREE.MathUtils.lerp(-1, 0, sTake),
+                THREE.MathUtils.lerp(0, 0.35, sTake),
+                THREE.MathUtils.lerp(0, -1, sTake)
+              ).normalize();
+            } else {
+              _gripPos.set(
+                THREE.MathUtils.lerp(0.36, 0.31, sTop),
+                THREE.MathUtils.lerp(1.04, 1.68, sTop),
+                THREE.MathUtils.lerp(0.30, -0.06, sTop)
+              );
+              // At top of backswing, shaft wraps nicely behind the head pointing toward target/sky
+              _clubTarget.set(
+                THREE.MathUtils.lerp(1.32, -0.45, sTop),
+                THREE.MathUtils.lerp(1.06, 1.96, sTop),
+                THREE.MathUtils.lerp(0.12, -0.46, sTop)
+              );
+              _faceDir.set(
+                THREE.MathUtils.lerp(0, -0.35, sTop),
+                THREE.MathUtils.lerp(0.35, 0.85, sTop),
+                THREE.MathUtils.lerp(-1, -0.35, sTop)
+              ).normalize();
+            }
+          } else if (phase === 'swing') {
+            const p = Math.max(0.12, THREE.MathUtils.clamp(powerVal, 0, 1));
+            const tHit = 0.155;
+            const tExt = 0.30;
+            const tFin = 0.82;
+
+            // Compute top-of-backswing starting hands for current power p
+            const topPelvisY = 0.66 * p;
+            const topLSpineY = 0.42 * p;
+            const topChestY = 0.52 * p;
+            const topGripX = p <= 0.38 ? THREE.MathUtils.lerp(spec.ballX + 0.05, 0.36, p / 0.38) : THREE.MathUtils.lerp(0.36, 0.31, (p - 0.38) / 0.62);
+            const topGripY = p <= 0.38 ? THREE.MathUtils.lerp(0.91, 1.04, p / 0.38) : THREE.MathUtils.lerp(1.04, 1.68, (p - 0.38) / 0.62);
+            const topGripZ = p <= 0.38 ? THREE.MathUtils.lerp(0.44, 0.30, p / 0.38) : THREE.MathUtils.lerp(0.30, -0.06, (p - 0.38) / 0.62);
+            const topTipX = p <= 0.38 ? THREE.MathUtils.lerp(spec.ballX, 1.32, p / 0.38) : THREE.MathUtils.lerp(1.32, -0.45, (p - 0.38) / 0.62);
+            const topTipY = p <= 0.38 ? THREE.MathUtils.lerp(spec.headY, 1.06, p / 0.38) : THREE.MathUtils.lerp(1.06, 1.96, (p - 0.38) / 0.62);
+            const topTipZ = p <= 0.38 ? THREE.MathUtils.lerp(spec.stanceDist, 0.12, p / 0.38) : THREE.MathUtils.lerp(0.12, -0.46, (p - 0.38) / 0.62);
+
+            if (animTime <= tHit) {
+              // DOWNSWING -> IMPACT: hips fire open first, lag holds until mid-downswing, head stays behind ball
+              const u = animTime / tHit;
+              const uHips = easeOutCubic(Math.min(1, u * 1.15));
+              const uHands = u * u * (1.25 - 0.25 * u);
+              const uLag = Math.pow(u, 2.35); // late wrist release into impact!
+
+              pelvisX = THREE.MathUtils.lerp(0.045 * p, -0.085, uHips);
+              pelvisY = THREE.MathUtils.lerp(0.90 + 0.015 * p, 0.89, u);
+              pelvisRotY = THREE.MathUtils.lerp(topPelvisY, -0.44, uHips);
+              lSpineY = THREE.MathUtils.lerp(topLSpineY, 0.16, uHands);
+              chestY = THREE.MathUtils.lerp(topChestY, 0.12, uHands);
+              chestX = THREE.MathUtils.lerp(0.20 - 0.04 * p, 0.21, u);
+              chestZ = THREE.MathUtils.lerp(-0.06 + 0.18 * p, -0.14, uHands); // trail shoulder drives under at impact
+              rHeelLift = 0.26 * uHips;
+
+              // Head stays steady watching the ball!
+              const totalYaw = pelvisRotY + lSpineY + chestY;
+              headY = -totalYaw * 0.92;
+              headZ = 0.08 * (1 - u);
+              headX = 0.24;
+
+              _gripPos.set(
+                THREE.MathUtils.lerp(topGripX, spec.ballX - 0.05, uHands),
+                THREE.MathUtils.lerp(topGripY, 0.90, uHands),
+                THREE.MathUtils.lerp(topGripZ, 0.44, uHands)
+              );
+              _clubTarget.set(
+                THREE.MathUtils.lerp(topTipX, spec.ballX, uLag),
+                THREE.MathUtils.lerp(topTipY, spec.headY, uLag),
+                THREE.MathUtils.lerp(topTipZ, spec.stanceDist, uLag)
+              );
+              _faceDir.set(
+                THREE.MathUtils.lerp(-0.35, -1, uLag),
+                THREE.MathUtils.lerp(0.85, 0, uLag),
+                THREE.MathUtils.lerp(-0.35, 0, uLag)
+              ).normalize();
+            } else if (animTime <= tExt) {
+              // FOLLOW-THROUGH EXTENSION: both arms whip past impact down the target line
+              const u = easeOutCubic((animTime - tHit) / (tExt - tHit));
+              pelvisX = THREE.MathUtils.lerp(-0.085, -0.125, u);
+              pelvisY = THREE.MathUtils.lerp(0.89, 0.91, u);
+              pelvisRotY = THREE.MathUtils.lerp(-0.44, -0.78, u);
+              lSpineY = THREE.MathUtils.lerp(0.16, -0.18, u);
+              chestY = THREE.MathUtils.lerp(0.12, -0.22, u);
+              chestX = THREE.MathUtils.lerp(0.21, 0.14, u);
+              chestZ = THREE.MathUtils.lerp(-0.14, -0.02, u);
+              rHeelLift = THREE.MathUtils.lerp(0.26, 0.68, u);
+              lFootRoll = 0.04 * u;
+
+              headY = THREE.MathUtils.lerp(0.16, 0.06, u);
+              headX = THREE.MathUtils.lerp(0.24, 0.08, u);
+
+              _gripPos.set(
+                THREE.MathUtils.lerp(spec.ballX - 0.05, -0.44, u),
+                THREE.MathUtils.lerp(0.90, 1.18, u),
+                THREE.MathUtils.lerp(0.44, 0.26, u)
+              );
+              _clubTarget.set(
+                THREE.MathUtils.lerp(spec.ballX, -1.35, u),
+                THREE.MathUtils.lerp(spec.headY, 1.24, u),
+                THREE.MathUtils.lerp(spec.stanceDist, 0.08, u)
+              );
+              _faceDir.set(
+                THREE.MathUtils.lerp(-1, 0, u),
+                THREE.MathUtils.lerp(0, 0.35, u),
+                THREE.MathUtils.lerp(0, -1, u)
+              ).normalize();
+            } else {
+              // PRO FINISH: balanced on braced lead leg, back foot up on toe, club high over left shoulder
+              const u = easeOutCubic(Math.min(1, (animTime - tExt) / (tFin - tExt)));
+              const finishBlend = Math.min(1, 0.35 + 0.65 * p);
+              pelvisX = THREE.MathUtils.lerp(-0.125, -0.145, u);
+              pelvisY = THREE.MathUtils.lerp(0.91, 0.935, u);
+              pelvisRotY = THREE.MathUtils.lerp(-0.78, -0.92 * finishBlend - 0.25, u);
+              pelvisRotX = THREE.MathUtils.lerp(0.14, 0.08, u);
+              lSpineX = THREE.MathUtils.lerp(0.20, 0.08, u);
+              lSpineY = THREE.MathUtils.lerp(-0.18, -0.26 * finishBlend, u);
+              chestY = THREE.MathUtils.lerp(-0.22, -0.28 * finishBlend, u);
+              chestX = THREE.MathUtils.lerp(0.14, 0.04, u);
+              chestZ = THREE.MathUtils.lerp(-0.02, 0.12 * finishBlend, u);
+              rHeelLift = THREE.MathUtils.lerp(0.68, 0.98 * finishBlend + 0.12, u);
+              lFootRoll = THREE.MathUtils.lerp(0.04, 0.09 * finishBlend, u);
+
+              // Head lifts and tracks ball down the fairway!
+              headY = THREE.MathUtils.lerp(0.06, 0.02, u);
+              headX = THREE.MathUtils.lerp(0.08, -0.05, u);
+
+              _gripPos.set(
+                THREE.MathUtils.lerp(-0.44, -0.25, u),
+                THREE.MathUtils.lerp(1.18, 1.66, u),
+                THREE.MathUtils.lerp(0.26, -0.08, u)
+              );
+              _clubTarget.set(
+                THREE.MathUtils.lerp(-1.35, 0.42, u),
+                THREE.MathUtils.lerp(1.24, 1.72, u),
+                THREE.MathUtils.lerp(0.08, -0.56, u)
+              );
+              _faceDir.set(0.3, 0.85, -0.3).normalize();
+            }
+          }
+        }
+
+        // Apply spine & head rotations
+        gp.pelvisPivot.position.set(pelvisX, pelvisY, pelvisZ);
+        gp.pelvisPivot.rotation.set(pelvisRotX, pelvisRotY, pelvisRotZ);
+        gp.lowerSpinePivot.rotation.set(lSpineX, lSpineY, lSpineZ);
+        gp.chestPivot.rotation.set(chestX, chestY, chestZ);
+        gp.headPivot.rotation.set(headX, headY, headZ);
+
+        // Compute exact rig-space transforms of hips & shoulders without touching scene graph world matrices
+        gp.pelvisPivot.updateMatrix();
+        gp.lowerSpinePivot.updateMatrix();
+        gp.chestPivot.updateMatrix();
+
+        _lHipPos.set(-0.115, -0.02, 0).applyMatrix4(gp.pelvisPivot.matrix);
+        _rHipPos.set(0.115, -0.02, 0).applyMatrix4(gp.pelvisPivot.matrix);
+
+        _rigM4.multiplyMatrices(gp.pelvisPivot.matrix, gp.lowerSpinePivot.matrix);
+        _rigM4.multiply(gp.chestPivot.matrix);
+        _lShPos.set(-0.225, 0.30, 0).applyMatrix4(_rigM4);
+        _rShPos.set(0.225, 0.30, 0).applyMatrix4(_rigM4);
+
+        // Pose feet on ground (Y=0) & solve 2-bone Leg IK
+        const { leftLeg, rightLeg } = gp;
+        leftLeg.footPivot.position.set(-stanceHalf, 0, -0.02);
+        leftLeg.footPivot.rotation.set(0, 0.16, -lFootRoll);
+        leftLeg.toePivot.rotation.set(0, 0, 0);
+        leftLeg.footPivot.updateMatrix();
+        leftLeg.toePivot.updateMatrix();
+        _footM4.multiplyMatrices(leftLeg.footPivot.matrix, leftLeg.toePivot.matrix);
+        _lAnkPos.set(0, 0.095, -0.14).applyMatrix4(_footM4);
+
+        rightLeg.footPivot.position.set(stanceHalf, 0, 0.01);
+        rightLeg.footPivot.rotation.set(0, -0.04, 0);
+        rightLeg.toePivot.rotation.set(rHeelLift, 0, 0);
+        rightLeg.footPivot.updateMatrix();
+        rightLeg.toePivot.updateMatrix();
+        _footM4.multiplyMatrices(rightLeg.footPivot.matrix, rightLeg.toePivot.matrix);
+        _rAnkPos.set(0, 0.095, -0.14).applyMatrix4(_footM4);
+
+        // Knee poles point forward (+Z), with right knee driving inward on downswing/finish
+        _lPole.set(-0.16, 0.15, 1.0).normalize();
+        _rPole.set(0.14 - rHeelLift * 0.45, 0.15, 1.0).normalize();
+        solveTwoBoneIK(_lHipPos, _lAnkPos, gp.LEG_L1, gp.LEG_L2, _lPole, _lKneePos);
+        solveTwoBoneIK(_rHipPos, _rAnkPos, gp.LEG_L1, gp.LEG_L2, _rPole, _rKneePos);
+        orientSegment(leftLeg.thighGroup, _lHipPos, _lKneePos, _lPole);
+        orientSegment(leftLeg.shinGroup, _lKneePos, _lAnkPos, _lPole);
+        orientSegment(rightLeg.thighGroup, _rHipPos, _rKneePos, _rPole);
+        orientSegment(rightLeg.shinGroup, _rKneePos, _rAnkPos, _rPole);
+
+        // Clamp grip distance within lead arm reach so hands NEVER disconnect from shoulders
+        const maxLeadReach = (gp.ARM_L1 + gp.ARM_L2) * 0.96;
+        _ikV1.subVectors(_gripPos, _lShPos);
+        const leadDist = _ikV1.length();
+        if (leadDist > maxLeadReach && leadDist > 1e-5) {
+          _ikV1.multiplyScalar(maxLeadReach / leadDist);
+          _gripPos.copy(_lShPos).add(_ikV1);
+        }
+
+        // Orient clubPivot from _gripPos toward _clubTarget with right-handed basis:
+        // -X = clubface toward _faceDir, +Y = up shaft, +Z = clubhead toe away from golfer
+        _clubDir.subVectors(_clubTarget, _gripPos).normalize();
+        _clubUp.copy(_clubDir).negate();
+        _clubZ.crossVectors(_clubUp, _faceDir);
+        if (_clubZ.lengthSq() < 1e-6) _clubZ.set(0, 0, 1);
+        else _clubZ.normalize();
+        _clubX.crossVectors(_clubUp, _clubZ).normalize();
+        _ikM4.makeBasis(_clubX, _clubUp, _clubZ);
+        gp.clubPivot.position.copy(_gripPos);
+        gp.clubPivot.quaternion.setFromRotationMatrix(_ikM4);
+        gp.clubPivot.updateMatrix();
+
+        // Compute exact wrist anchor points directly on the club grip
+        _lWriPos.set(0, -0.025, -0.015).applyMatrix4(gp.clubPivot.matrix);
+        _rWriPos.set(0, -0.145, -0.015).applyMatrix4(gp.clubPivot.matrix);
+
+        // Solve 2-Bone Arm IK with shoulder-tracked elbow poles
+        const halfYaw = (pelvisRotY + lSpineY + chestY) * 0.5;
+        const cYaw = Math.cos(halfYaw), sYaw = Math.sin(halfYaw);
+        _lPole.set(-0.45 * cYaw - 0.45 * sYaw, -0.78, 0.45 * sYaw - 0.45 * cYaw).normalize();
+        _rPole.set(0.55 * cYaw - 0.45 * sYaw, -0.78, -0.55 * sYaw - 0.45 * cYaw).normalize();
+        solveTwoBoneIK(_lShPos, _lWriPos, gp.ARM_L1, gp.ARM_L2, _lPole, _lElbPos);
+        solveTwoBoneIK(_rShPos, _rWriPos, gp.ARM_L1, gp.ARM_L2, _rPole, _rElbPos);
+        orientSegment(gp.leftArm.upperGroup, _lShPos, _lElbPos, _lPole);
+        orientSegment(gp.leftArm.forearmGroup, _lElbPos, _lWriPos, _lPole);
+        orientSegment(gp.rightArm.upperGroup, _rShPos, _rElbPos, _rPole);
+        orientSegment(gp.rightArm.forearmGroup, _rElbPos, _rWriPos, _rPole);
+      }
+
       function applySwingPose() {
-        if (!golferParts.torsoPivot) return;
-        const p = state.lockedPower;
-        const tHips = easeOutCubic(Math.min(1, state.swingAnimTime / 0.16));
-        const tSh = easeOutCubic(Math.min(1, Math.max(0, (state.swingAnimTime - 0.05) / 0.20)));
-        golferParts.torsoPivot.rotation.y = THREE.MathUtils.lerp(p * 0.55, -0.55, tHips);
-        golferParts.torsoPivot.rotation.x = THREE.MathUtils.lerp(0.38 - p * 0.06, 0.12, tSh);
-        golferParts.torsoPivot.rotation.z = THREE.MathUtils.lerp(0, 0.10, tSh);
-        golferParts.armPivot.rotation.y = THREE.MathUtils.lerp(p * 0.55, -0.35, tSh);
-        golferParts.armPivot.rotation.z = THREE.MathUtils.lerp(p * 1.45, -1.35, tSh);
-        golferParts.armPivot.rotation.x = THREE.MathUtils.lerp(-0.55 - p * 0.35, -1.15, tSh);
+        applyGolferPose('swing', state.lockedPower, state.swingAnimTime, clock.getElapsedTime());
       }
 
       function launchSwingAnimation() {
@@ -6067,6 +6668,7 @@
         if (state.clubIdx < CLUBS.length - 1) {
           state.clubIdx++;
           state.manualClub = true;
+          placeGolferAtBall();
           updateAimAndHUD();
         }
       });
@@ -6075,6 +6677,7 @@
         if (state.clubIdx > 0) {
           state.clubIdx--;
           state.manualClub = true;
+          placeGolferAtBall();
           updateAimAndHUD();
         }
       });
@@ -6201,6 +6804,7 @@
             golferGroup.position.z + Math.cos(ang) * 4.2
           );
           camera.lookAt(golferGroup.position.x, golferGroup.position.y + 1.15, golferGroup.position.z);
+          applyGolferPose('creator', 0, 0, elapsed);
         } else if (state.mode === 'flyover') {
           state.flyoverT += dt * 0.16;
           if (state.flyoverT >= 1.0) {
@@ -6232,6 +6836,8 @@
               state.aimAngle = state.aimTarget;
               placeGolferAtBall();
               updateAimAndHUD();
+            } else {
+              applyGolferPose('address', 0, 0, elapsed);
             }
           }
           // Swing meter updates
@@ -6242,25 +6848,17 @@
             const pct = Math.min(100, Math.round(state.powerVal * 100));
             document.getElementById('power-fill').style.width = `${pct}%`;
             document.getElementById('meter-power-readout').textContent = `${pct}%`;
-            if (golferParts.torsoPivot) {
-              // Backswing coil: hips turn ~half, shoulders add the rest on
-              // top (the X-factor) — the body twists instead of turning
-              // as one stiff block.
-              golferParts.torsoPivot.rotation.y = state.powerVal * 0.55;
-              golferParts.torsoPivot.rotation.x = 0.38 - state.powerVal * 0.06;
-              golferParts.armPivot.rotation.y = state.powerVal * 0.55;
-              golferParts.armPivot.rotation.z = state.powerVal * 1.45;
-              golferParts.armPivot.rotation.x = -0.55 - state.powerVal * 0.35;
-            }
+            applyGolferPose('backswing', state.powerVal, 0, elapsed);
           } else if (state.swingPhase === 'accuracy') {
             state.accVal += state.accDir * dt * 2.35;
             if (state.accVal >= 1) { state.accVal = 1; state.accDir = -1; }
             if (state.accVal <= -1) { state.accVal = -1; state.accDir = 1; }
             const leftPct = 50 + state.accVal * 47;
             document.getElementById('acc-needle').style.left = `${leftPct}%`;
+            applyGolferPose('backswing', state.lockedPower, 0, elapsed);
           } else if (state.swingPhase === 'swinging') {
             state.swingAnimTime += dt;
-            const t = Math.min(1, state.swingAnimTime / 0.24);
+            const t = Math.min(1, state.swingAnimTime / 0.34);
             applySwingPose();
             if (t >= 0.45 && state.swingPhase === 'swinging') {
               executeBallStrike();
@@ -6270,10 +6868,8 @@
             }
           } else if (state.swingPhase === 'flying') {
             state.flightTime = (state.flightTime || 0) + dt;
-            // Finish the follow-through: the pose keeps easing to the held
-            // finish while the ball flies (it used to freeze at impact).
-            if (state.swingAnimTime < 0.55) {
-              state.swingAnimTime = Math.min(0.55, state.swingAnimTime + dt);
+            if (state.swingAnimTime < 0.85) {
+              state.swingAnimTime = Math.min(0.85, state.swingAnimTime + dt);
               applySwingPose();
             }
             stepBallPhysics(dt);
