@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.13</div>
+        <div class="build-tag">BUILD v2026.11.21.15</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.13</div>
+        <div class="build-tag">BUILD v2026.11.21.15</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1088,7 +1088,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.13</div>
+        <div class="build-tag">BUILD v2026.11.21.15</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1105,7 +1105,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.13</div>
+          <div class="build-tag">BUILD v2026.11.21.15</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -2758,7 +2758,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.13
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.15
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -3316,9 +3316,12 @@
         function baseTerrainHeight(x, z) {
           const progress = Math.max(-0.1, Math.min(1.15, -z / Math.max(120, totalYards)));
           const trend = progress * slopeTrend;
-          const roll = Math.sin(x * 0.025 + hillPhase) * Math.cos(z * 0.022) * hillAmp;
+          // HILLS: the relief was gentle (hillAmp 1.6-4.0 yd) so the
+          // course read flat. Roll x1.5, mounds x0.5 — visible hills
+          // with shadow and depth. Green/tee stay flattened elsewhere.
+          const roll = Math.sin(x * 0.025 + hillPhase) * Math.cos(z * 0.022) * hillAmp * 1.5;
           const lateralMounds = Math.pow(Math.min(1, Math.abs(x - pin.x * progress) / 55), 1.7) * 3.5;
-          return trend + roll + lateralMounds * 0.35;
+          return trend + roll + lateralMounds * 0.5;
         }
 
         const pinBaseY = baseTerrainHeight(pin.x, pin.y) + 0.35;
@@ -3487,7 +3490,7 @@
         // one flat green. Bright mown fairway, deep dark rough.
         const fwA = new THREE.Color(pal.fairwayA).multiplyScalar(1.38);
         const fwB = new THREE.Color(pal.fairwayB).multiplyScalar(1.38);
-        const roughC = new THREE.Color(pal.rough).multiplyScalar(0.72);
+        const roughC = new THREE.Color(pal.rough).multiplyScalar(0.58);
 
         const minX = Math.min(-180, hole.pin.x - 180);
         const maxX = Math.max(180, hole.pin.x + 180);
@@ -3504,22 +3507,90 @@
         const terrainGeo = new THREE.PlaneGeometry(w, d, segX, segZ);
         terrainGeo.rotateX(-Math.PI / 2);
         const posAttr = terrainGeo.attributes.position;
+        // ROUGH LOOKS LIKE GRASS: the rough was one flat dark green, so
+        // it read as felt. Each terrain vertex gets a mottled shade
+        // (seeded) that also darkens the valleys and lightens the
+        // hilltops, so the ground is variegated and the hills get
+        // shadow and depth.
+        const terrRand = mulberry32(hole.seed + 31337);
+        const terrHeights = new Float32Array(posAttr.count);
+        let terrMin = Infinity, terrMax = -Infinity;
         for (let i = 0; i < posAttr.count; i++) {
           const vx = posAttr.getX(i) + cx;
           const vz = posAttr.getZ(i) + cz;
           const vy = hole.groundHeightAt(vx, vz);
           posAttr.setXYZ(i, vx, vy, vz);
+          terrHeights[i] = vy;
+          if (vy < terrMin) terrMin = vy;
+          if (vy > terrMax) terrMax = vy;
         }
+        const terrCols = new Float32Array(posAttr.count * 3);
+        const terrSpan = Math.max(0.01, terrMax - terrMin);
+        for (let i = 0; i < posAttr.count; i++) {
+          const hN = (terrHeights[i] - terrMin) / terrSpan;
+          const mottle = 0.84 + terrRand() * 0.28;
+          const depth = 0.76 + hN * 0.44; // valleys darker, hilltops lighter
+          const m = mottle * depth;
+          terrCols[i * 3] = m * 0.92;
+          terrCols[i * 3 + 1] = m;
+          terrCols[i * 3 + 2] = m * 0.9;
+        }
+        terrainGeo.setAttribute('color', new THREE.BufferAttribute(terrCols, 3));
         terrainGeo.computeVertexNormals();
         const terrainMat = new THREE.MeshStandardMaterial({
           color: roughC,
           roughness: 0.92,
           metalness: 0.0,
           flatShading: true,
+          vertexColors: true,
         });
         const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
         terrainMesh.receiveShadow = true;
         worldGroup.add(terrainMesh);
+
+        // Grass tufts on the rough: instanced cones in varied dark
+        // greens, seeded per hole. Only where the surface is Rough (or
+        // OB past the fence) — never on the fairway, green, tee,
+        // bunkers or water.
+        {
+          const tuftRand = mulberry32(hole.seed + 777);
+          const tuftGeo = new THREE.ConeGeometry(0.32, 0.95, 4);
+          const tuftMat = new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true });
+          const tuftColors = [0x1d4d28, 0x256b32, 0x17401f, 0x2a7a35].map((c) => new THREE.Color(c));
+          const TUFTS = 3000;
+          const tuftMesh = new THREE.InstancedMesh(tuftGeo, tuftMat, TUFTS);
+          const _tuftM4 = new THREE.Matrix4();
+          const _tuftQ = new THREE.Quaternion();
+          const _tuftS = new THREE.Vector3();
+          const _tuftP = new THREE.Vector3();
+          const _tuftUp = new THREE.Vector3(0, 1, 0);
+          let placed = 0;
+          let tries = 0;
+          while (placed < TUFTS && tries < TUFTS * 4) {
+            tries++;
+            const tx = minX + tuftRand() * w;
+            const tz = minZ + tuftRand() * d;
+            const surf = hole.getSurfaceAt(tx, tz);
+            if (surf !== 'Rough' && surf !== 'OB') continue;
+            if (Math.hypot(tx, tz) < 16) continue; // clear of the tee
+            if (Math.hypot(tx - hole.pin.x, tz - hole.pin.y) < hole.greenRadius + 6) continue;
+            if (Math.hypot(tx - (-26), tz - 22) < 18) continue; // clear of the clubhouse
+            const gy = hole.groundHeightAt(tx, tz);
+            const s = 0.7 + tuftRand() * 0.8;
+            _tuftQ.setFromAxisAngle(_tuftUp, tuftRand() * Math.PI * 2);
+            _tuftS.set(s, s * (0.8 + tuftRand() * 0.5), s);
+            _tuftP.set(tx, gy + 0.4 * _tuftS.y, tz);
+            _tuftM4.compose(_tuftP, _tuftQ, _tuftS);
+            tuftMesh.setMatrixAt(placed, _tuftM4);
+            tuftMesh.setColorAt(placed, tuftColors[Math.floor(tuftRand() * tuftColors.length)]);
+            placed++;
+          }
+          tuftMesh.count = placed;
+          tuftMesh.instanceMatrix.needsUpdate = true;
+          if (tuftMesh.instanceColor) tuftMesh.instanceColor.needsUpdate = true;
+          tuftMesh.userData.grass = true;
+          worldGroup.add(tuftMesh);
+        }
 
         // 2. Fairway Ribbon (if Par 4/5) with PS1 mow stripes
         if (hole.par >= 4) {
@@ -4872,7 +4943,13 @@
         for (let s = 0; s < subSteps; s++) {
           const groundY = hole.groundHeightAt(state.ballPos.x, state.ballPos.z);
           const surface = hole.getSurfaceAt(state.ballPos.x, state.ballPos.z);
-          const airborne = state.ballPos.y > groundY + 0.24 || state.ballVel.y > 0.35;
+          // A fast-falling ball is airborne no matter how close to the
+          // ground it is. Without this, on a steep downhill the ground
+          // drops away as fast as the ball falls, the bounce check never
+          // fires, and the ball slips into the rolling branch at full
+          // speed (a drive rolled 166 yd after landing). The bounce is
+          // what kills the speed (keepXZ 0.12-0.20 on the first bounce).
+          const airborne = state.ballPos.y > groundY + 0.24 || state.ballVel.y > 0.35 || state.ballVel.y < -1.4;
 
           if (airborne) {
             // Apply wind + hook/slice curve + gravity
