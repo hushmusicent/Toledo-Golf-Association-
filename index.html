@@ -1030,7 +1030,7 @@
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.21</div>
+        <div class="build-tag">BUILD v2026.11.21.22</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="color:var(--text-muted);margin:0 0 18px;">Toledo Golf Association · 44 authentic courses</p>
         <h2 class="panel-title">Player Login</h2>
@@ -1070,7 +1070,7 @@
     <!-- MAIN MENU -->
     <div id="menu-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.21</div>
+        <div class="build-tag">BUILD v2026.11.21.22</div>
         <h1 style="margin:14px 0 4px;">TGA Golf Tour</h1>
         <p style="margin:0 0 18px;"><span class="profile-chip" id="menu-profile-line">Playing as Hush</span></p>
         <button class="menu-btn" id="btn-mode-single">Single Player<small>Just you against the course</small></button>
@@ -1088,7 +1088,7 @@
     <!-- MODE / FORMAT SCREEN -->
     <div id="mode-screen" class="hidden">
       <div class="menu-wrap">
-        <div class="build-tag">BUILD v2026.11.21.21</div>
+        <div class="build-tag">BUILD v2026.11.21.22</div>
         <h2 class="panel-title" id="mode-title" style="margin-top:14px;">Single Player</h2>
         <p style="color:var(--text-muted);margin:0 0 18px;" id="mode-subtitle">Just you against the course.</p>
         <div class="field-group hidden" id="pvp2-row">
@@ -1105,7 +1105,7 @@
     <div id="home-screen" class="hidden">
       <div class="home-shell">
         <div class="build-strip">
-          <div class="build-tag">BUILD v2026.11.21.21</div>
+          <div class="build-tag">BUILD v2026.11.21.22</div>
           <div class="career-bar tabular">
             <span>Career Earnings: <strong id="home-earnings">$0</strong></span>
             <span>Round Points: <strong id="home-points">0 pts</strong></span>
@@ -1201,6 +1201,20 @@
             <button class="seg-btn" data-build="bigguy">Big Guy</button>
             <button class="seg-btn" data-build="biglou">Big Lou</button>
           </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Shoe Type</span>
+          <div class="seg-row" id="shoe-picker">
+            <button class="seg-btn active" data-shoe="sneakers">Sneakers</button>
+            <button class="seg-btn" data-shoe="cleats">Cleats</button>
+            <button class="seg-btn" data-shoe="boots">Boots</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Shoe Colour</span>
+          <div class="swatch-row" id="shoe-swatches"></div>
         </div>
 
         <div style="display:flex; gap:10px; padding-top:4px;">
@@ -2637,6 +2651,11 @@
         '#205ba8', '#5a3a28', '#6b7280', '#1f7a44',
       ];
       const HAIRSTYLES = ['short', 'afro', 'dreads', 'long', 'bald'];
+      const SHOE_TYPES = ['sneakers', 'cleats', 'boots'];
+      const SHOE_COLORS = [
+        '#17191c', '#f2f4f0', '#c8102e', '#205ba8',
+        '#1f7a44', '#e2b84f', '#733899', '#5a3a28',
+      ];
 
       // =========================================================================
       // 2. SAVE STATE (localStorage)
@@ -2683,6 +2702,8 @@
             pants: '#2c3338',
             hair: 'short',
             build: 'standard',
+            shoeType: 'sneakers',
+            shoeColor: '#17191c',
           },
         };
       }
@@ -2714,6 +2735,8 @@
                 pants: parsed.golfer?.pants || '#2c3338',
                 hair: parsed.golfer?.hair || 'short',
                 build: parsed.golfer?.build || 'standard',
+                shoeType: parsed.golfer?.shoeType || 'sneakers',
+                shoeColor: parsed.golfer?.shoeColor || '#17191c',
               },
             };
           }
@@ -2758,7 +2781,7 @@
       }
 
       // =========================================================================
-      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.21
+      // 2b. FIREBASE (email/password accounts + cloud save) — BUILD v2026.11.21.22
       // The web config below is the public client config Firebase shows for a
       // web app; it is meant to be embedded in client code (no secrets in it).
       // The SDK loads lazily: if the network is down, the game falls back to
@@ -2827,6 +2850,8 @@
             pants: parsed.golfer?.pants || '#2c3338',
             hair: parsed.golfer?.hair || 'short',
             build: parsed.golfer?.build || 'standard',
+            shoeType: parsed.golfer?.shoeType || 'sneakers',
+            shoeColor: parsed.golfer?.shoeColor || '#17191c',
           },
         };
       }
@@ -3168,7 +3193,7 @@
       let currentHoleData = null;
 
       // =========================================================================
-      // 1b. REAL COURSE LAYOUTS (OpenStreetMap surveyed geometry, v2026.11.21.21)
+      // 1b. REAL COURSE LAYOUTS (OpenStreetMap surveyed geometry, v2026.11.21.22)
       // 27 courses exact-or-partial (22 exact, 5 partial); a null hole entry
       // means that hole keeps the generated layout. Courses not listed here
       // are fully generated until surveyed.
@@ -3281,7 +3306,7 @@
 
         const waterLevel = -1.6;
 
-        // REAL LAYOUT (OpenStreetMap, BUILD v2026.11.21.21): if this course+hole
+        // REAL LAYOUT (OpenStreetMap, BUILD v2026.11.21.22): if this course+hole
         // has surveyed geometry, use the true centerline, pin, green size and
         // hazards instead of the generated ones. The spline passes through the
         // real waypoints, so the fairway ribbon, fans, fence, trees, aim and
@@ -4512,6 +4537,7 @@
             if (Math.hypot(fx - (-26), fz - 22) < 18) return;
             const gy = hole.groundHeightAt(fx, fz);
             const fan = createSpectatorMesh(fanRand);
+            fan.userData.fan = true;
             fan.position.set(fx, gy, fz);
             const baseYaw = Math.atan2(faceX - fx, faceZ - fz) + (fanRand() - 0.5) * 0.25;
             fan.rotation.y = baseYaw;
@@ -4714,7 +4740,7 @@
           : gCfg.shirt;
 
         const pantsColor = equipped.has('bunker_slacks') ? '#d8cca8' : (gCfg.pants || '#2c3338');
-        const shoeColor = equipped.has('golden_cleats') ? '#e8bd46' : '#17191c';
+        const shoeColor = equipped.has('golden_cleats') ? '#e8bd46' : (gCfg.shoeColor || '#17191c');
         const soleColor = equipped.has('golden_cleats') ? '#1c1e20' : '#f5f5f5';
 
         const matShirt = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.78, flatShading: false });
@@ -4974,15 +5000,32 @@
           shoeContainer.position.set(0, -0.015, -0.09);
           toePivot.add(shoeContainer);
 
-          // Outsole + sneaker upper + collar + stripes
-          shoeContainer.add(M(new THREE.BoxGeometry(0.115, 0.028, 0.265), matSole, 0, 0.014, 0.025));
+          // Outsole + upper + collar — shape varies by shoe type (sneakers / cleats / boots)
+          const shoeType = gCfg.shoeType || 'sneakers';
+          const soleH = shoeType === 'boots' ? 0.038 : 0.028;
+          shoeContainer.add(M(new THREE.BoxGeometry(0.115, soleH, 0.265), matSole, 0, soleH / 2, 0.025));
           const upper = M(new THREE.SphereGeometry(0.062, 14, 10), matShoes, 0, 0.055, 0.025);
           upper.scale.set(0.95, 0.68, 2.05);
           shoeContainer.add(upper);
-          const heelCollar = M(new THREE.CylinderGeometry(0.048, 0.054, 0.068, 12), matShoes, 0, 0.072, -0.052);
-          shoeContainer.add(heelCollar);
-          shoeContainer.add(M(new THREE.BoxGeometry(0.012, 0.022, 0.042), matStripe, side * 0.058, 0.055, -0.01));
-          shoeContainer.add(M(new THREE.BoxGeometry(0.012, 0.022, 0.042), matStripe, side * 0.058, 0.055, 0.052));
+          if (shoeType === 'boots') {
+            // Tall ankle shaft, chunkier sole, no stripes
+            shoeContainer.add(M(new THREE.CylinderGeometry(0.05, 0.056, 0.15, 12), matShoes, 0, 0.11, -0.052));
+          } else {
+            const heelCollar = M(new THREE.CylinderGeometry(0.048, 0.054, 0.068, 12), matShoes, 0, 0.072, -0.052);
+            shoeContainer.add(heelCollar);
+            if (shoeType === 'sneakers') {
+              shoeContainer.add(M(new THREE.BoxGeometry(0.012, 0.022, 0.042), matStripe, side * 0.058, 0.055, -0.01));
+              shoeContainer.add(M(new THREE.BoxGeometry(0.012, 0.022, 0.042), matStripe, side * 0.058, 0.055, 0.052));
+            } else {
+              // Cleats: spike studs under the outsole
+              const studGeo = new THREE.ConeGeometry(0.011, 0.02, 8);
+              [[-0.035, 0.12], [0.035, 0.12], [-0.035, 0.025], [0.035, 0.025], [-0.035, -0.07], [0.035, -0.07]].forEach(([sx, sz]) => {
+                const stud = M(studGeo, matSole, sx, -0.008, sz);
+                stud.rotation.x = Math.PI;
+                shoeContainer.add(stud);
+              });
+            }
+          }
 
           return { thighGroup, shinGroup, footPivot, toePivot };
         };
@@ -6782,6 +6825,25 @@
         document.querySelectorAll('#build-picker [data-build]').forEach((btn) => {
           btn.classList.toggle('active', btn.dataset.build === saveData.golfer.build);
         });
+
+        const shoeRow = document.getElementById('shoe-swatches');
+        shoeRow.innerHTML = '';
+        SHOE_COLORS.forEach((hex) => {
+          const b = document.createElement('button');
+          b.className = 'swatch-btn' + (saveData.golfer.shoeColor === hex ? ' active' : '');
+          b.style.background = hex;
+          b.addEventListener('click', () => {
+            saveData.golfer.shoeColor = hex;
+            persistSave();
+            rebuildGolferMesh();
+            placeGolferAtBall();
+            renderCreatorPickers();
+          });
+          shoeRow.appendChild(b);
+        });
+        document.querySelectorAll('#shoe-picker [data-shoe]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.shoe === (saveData.golfer.shoeType || 'sneakers'));
+        });
       }
 
       function openShopModal() {
@@ -6986,6 +7048,16 @@
       document.querySelectorAll('#hair-picker [data-hair]').forEach((btn) => {
         btn.addEventListener('click', () => {
           saveData.golfer.hair = btn.dataset.hair;
+          persistSave();
+          rebuildGolferMesh();
+          placeGolferAtBall();
+          renderCreatorPickers();
+        });
+      });
+
+      document.querySelectorAll('#shoe-picker [data-shoe]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          saveData.golfer.shoeType = btn.dataset.shoe;
           persistSave();
           rebuildGolferMesh();
           placeGolferAtBall();
